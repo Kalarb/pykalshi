@@ -106,6 +106,152 @@ ws = create_ws_client("key-id", "/path/to/key.pem", Environment.DEMO)
 
 **Skipped** (not accessible): subaccounts, FCM, summary/resting_order_value.
 
+## Test Matrix
+
+Every endpoint has a unit test (mock transport). Integration tests hit the real Kalshi DEMO API.
+
+### Exchange / Account / Search
+
+| Method | Unit | Integration |
+|---|:---:|:---:|
+| `get_exchange_status` | Y | Y |
+| `get_exchange_schedule` | Y | Y |
+| `get_exchange_announcements` | Y | Y |
+| `get_user_data_timestamp` | Y | Y |
+| `get_api_limits` | Y | Y |
+| `get_endpoint_costs` | Y | Y (skips if 403) |
+| `get_tags_by_categories` | Y | Y |
+| `get_filters_by_sport` | Y | Y |
+
+### Orders
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_orders` | Y | Y | |
+| `get_order` | Y | Y | via create+cancel lifecycle |
+| `create_order` | Y | Y | places at 1c, won't fill |
+| `cancel_order` | Y | Y | cleans up created order |
+| `amend_order` | Y | | needs resting order |
+| `decrease_order` | Y | | needs resting order |
+| `batch_create_orders` | Y | | 5 unit tests (empty, chunk, split, none-strip, error) |
+| `batch_cancel_orders` | Y | | 2 unit tests (empty, chunk) |
+| `get_queue_positions` | Y | Y | |
+| `get_order_queue_position` | Y | | |
+
+### Order Groups
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_order_groups` | Y | Y | via lifecycle test |
+| `create_order_group` | Y | Y | creates with limit=100 |
+| `get_order_group` | Y | Y | with retry for propagation delay |
+| `delete_order_group` | Y | Y | cleans up in finally block |
+| `reset_order_group` | Y | Y | |
+| `trigger_order_group` | Y | | would affect live groups |
+| `update_order_group_limit` | Y | | would affect live groups |
+
+### Portfolio
+
+| Method | Unit | Integration |
+|---|:---:|:---:|
+| `get_balance` | Y | Y |
+| `get_positions` | Y | Y |
+| `get_settlements` | Y | Y |
+| `get_fills` | Y | Y |
+
+### Markets
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_market` | Y | Y | |
+| `get_markets` | Y | Y | |
+| `get_market_orderbook` | Y | Y | |
+| `get_market_orderbooks` | Y | Y | batch, 3 tickers |
+| `get_trades` | Y | Y | |
+| `get_market_candlesticks` | Y | | needs series_ticker + time range |
+
+### Events
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_event` | Y | Y | |
+| `get_events` | Y | Y | |
+| `get_multivariate_events` | Y | Y | |
+| `get_event_metadata` | Y | Y | |
+| `get_event_candlesticks` | Y | | needs series_ticker + time range |
+| `get_forecast_percentile_history` | Y | | needs series_ticker + time range |
+
+### Series
+
+| Method | Unit | Integration |
+|---|:---:|:---:|
+| `get_series` | Y | Y |
+| `get_series_list` | Y | Y |
+| `get_fee_changes` | Y | Y |
+
+### Historical
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_historical_cutoff` | Y | Y | |
+| `get_historical_markets` | Y | Y | |
+| `get_historical_market` | Y | | needs specific archived ticker |
+| `get_historical_market_candlesticks` | Y | | needs archived ticker + time range |
+| `get_historical_fills` | Y | Y | |
+| `get_historical_orders` | Y | Y | |
+| `get_historical_trades` | Y | Y | |
+
+### API Keys
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_api_keys` | Y | Y | |
+| `create_api_key` | Y | Y (skips if 400) | throwaway RSA pubkey |
+| `generate_api_key` | Y | | |
+| `delete_api_key` | Y | Y | cleans up created key |
+
+### Communications
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_communications_id` | Y | Y | |
+| `get_rfqs` | Y | Y | |
+| `create_rfq` | Y | Y (skips if error) | |
+| `get_rfq` | Y | Y | via create+delete lifecycle |
+| `delete_rfq` | Y | Y | cleans up created RFQ |
+| `get_quotes` | Y | Y (skips if 400) | |
+| `create_quote` | Y | | needs counterparty RFQ |
+| `get_quote` | Y | | |
+| `delete_quote` | Y | | |
+| `accept_quote` | Y | | needs counterparty RFQ |
+
+### Live Data / Milestones / Structured Targets / Incentive Programs
+
+| Method | Unit | Integration | Notes |
+|---|:---:|:---:|---|
+| `get_live_data` | Y | | needs active milestone ID |
+| `get_live_data_legacy` | | | deprecated endpoint |
+| `get_live_data_batch` | Y | | needs active milestone IDs |
+| `get_game_stats` | Y | | needs active milestone ID |
+| `get_milestone` | Y | | needs specific milestone ID |
+| `get_milestones` | Y | Y | |
+| `get_structured_target` | Y | | needs specific target ID |
+| `get_structured_targets` | Y | Y | |
+| `get_incentive_programs` | Y | Y | |
+
+### WebSocket
+
+| Check | Status |
+|---|:---:|
+| All 17 message types in `MSG_TYPE_TO_CHANNEL` | Y |
+| All 11 channels referenced | Y |
+| `event_lifecycle` multi-channel handling | Y |
+| Message routing + sequence tracking (7 channel types) | Y |
+| Subscription handshake (SID mapping) | Y |
+| Callback invocation | Y |
+| Unknown message type passthrough | Y |
+| Validated against live AsyncAPI spec | Y |
+
 ## Architecture
 
 ```
