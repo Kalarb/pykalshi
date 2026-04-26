@@ -29,6 +29,9 @@ packages = ["src/pykalshi"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: tests that hit the real Kalshi DEMO API (require .env credentials)",
+]
 
 [tool.mypy]
 python_version = "3.11"

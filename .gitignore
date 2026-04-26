@@ -6,3 +6,5 @@ dist/
 build/
 .coverage
 .pytest_cache/
+.env
+uv.lock
