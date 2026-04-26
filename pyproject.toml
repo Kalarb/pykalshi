@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pykalshi"
+dynamic = ["version"]
+description = "Shared async Python clients for the Kalshi prediction market API"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.25.0",
+    "cryptography>=41.0.0",
+    "pydantic>=2.0.0",
+    "orjson>=3.9.0",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+otel = ["opentelemetry-api>=1.20.0"]
+testing = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+dev = ["pykalshi[otel,testing]", "ruff>=0.1.0", "mypy>=1.5.0"]
+
+[tool.hatch.version]
+path = "src/pykalshi/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pykalshi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
