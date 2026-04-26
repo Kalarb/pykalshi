@@ -16,14 +16,21 @@ from .rate_limiter import ReadWriteTokenBucket
 from ._observability import get_meter, get_tracer
 from .api import (
     account,
+    api_keys,
+    communications,
     events,
     exchange,
+    historical,
+    incentive_programs,
+    live_data,
     markets,
+    milestones,
     order_groups,
     orders,
     portfolio,
     search,
     series,
+    structured_targets,
 )
 
 logger = logging.getLogger(__name__)
@@ -307,3 +314,149 @@ class KalshiHttpClient:
 
     async def get_filters_by_sport(self) -> dict[str, Any]:
         return await search.get_filters_by_sport(self)
+
+    # --- Exchange (additional) ---
+
+    async def get_exchange_announcements(self) -> dict[str, Any]:
+        return await exchange.get_exchange_announcements(self)
+
+    async def get_user_data_timestamp(self) -> dict[str, Any]:
+        return await exchange.get_user_data_timestamp(self)
+
+    # --- Account (additional) ---
+
+    async def get_endpoint_costs(self) -> dict[str, Any]:
+        return await account.get_endpoint_costs(self)
+
+    # --- Order Groups (additional) ---
+
+    async def trigger_order_group(self, order_group_id: str, **kwargs: Any) -> dict[str, Any]:
+        return await order_groups.trigger_order_group(self, order_group_id, **kwargs)
+
+    async def update_order_group_limit(self, order_group_id: str, **kwargs: Any) -> dict[str, Any]:
+        return await order_groups.update_order_group_limit(self, order_group_id, **kwargs)
+
+    # --- Markets (additional) ---
+
+    async def get_market_orderbooks(self, tickers: list[str]) -> dict[str, Any]:
+        return await markets.get_market_orderbooks(self, tickers)
+
+    async def get_market_candlesticks(self, series_ticker: str, ticker: str, **kwargs: Any) -> dict[str, Any]:
+        return await markets.get_market_candlesticks(self, series_ticker, ticker, **kwargs)
+
+    # --- Events (additional) ---
+
+    async def get_event_candlesticks(self, series_ticker: str, event_ticker: str, **kwargs: Any) -> dict[str, Any]:
+        return await events.get_event_candlesticks(self, series_ticker, event_ticker, **kwargs)
+
+    async def get_forecast_percentile_history(self, series_ticker: str, event_ticker: str, **kwargs: Any) -> dict[str, Any]:
+        return await events.get_forecast_percentile_history(self, series_ticker, event_ticker, **kwargs)
+
+    # --- Series (additional) ---
+
+    async def get_fee_changes(self, **kwargs: Any) -> dict[str, Any]:
+        return await series.get_fee_changes(self, **kwargs)
+
+    # --- Historical ---
+
+    async def get_historical_cutoff(self) -> dict[str, Any]:
+        return await historical.get_cutoff(self)
+
+    async def get_historical_markets(self, **kwargs: Any) -> dict[str, Any]:
+        return await historical.get_historical_markets(self, **kwargs)
+
+    async def get_historical_market(self, ticker: str) -> dict[str, Any]:
+        return await historical.get_historical_market(self, ticker)
+
+    async def get_historical_market_candlesticks(self, ticker: str, **kwargs: Any) -> dict[str, Any]:
+        return await historical.get_historical_market_candlesticks(self, ticker, **kwargs)
+
+    async def get_historical_fills(self, **kwargs: Any) -> dict[str, Any]:
+        return await historical.get_historical_fills(self, **kwargs)
+
+    async def get_historical_orders(self, **kwargs: Any) -> dict[str, Any]:
+        return await historical.get_historical_orders(self, **kwargs)
+
+    async def get_historical_trades(self, **kwargs: Any) -> dict[str, Any]:
+        return await historical.get_historical_trades(self, **kwargs)
+
+    # --- API Keys ---
+
+    async def get_api_keys(self) -> dict[str, Any]:
+        return await api_keys.get_api_keys(self)
+
+    async def create_api_key(self, **kwargs: Any) -> dict[str, Any]:
+        return await api_keys.create_api_key(self, **kwargs)
+
+    async def generate_api_key(self, **kwargs: Any) -> dict[str, Any]:
+        return await api_keys.generate_api_key(self, **kwargs)
+
+    async def delete_api_key(self, api_key: str) -> dict[str, Any]:
+        return await api_keys.delete_api_key(self, api_key)
+
+    # --- Communications ---
+
+    async def get_communications_id(self) -> dict[str, Any]:
+        return await communications.get_communications_id(self)
+
+    async def get_rfqs(self, **kwargs: Any) -> dict[str, Any]:
+        return await communications.get_rfqs(self, **kwargs)
+
+    async def create_rfq(self, **kwargs: Any) -> dict[str, Any]:
+        return await communications.create_rfq(self, **kwargs)
+
+    async def get_rfq(self, rfq_id: str) -> dict[str, Any]:
+        return await communications.get_rfq(self, rfq_id)
+
+    async def delete_rfq(self, rfq_id: str) -> dict[str, Any]:
+        return await communications.delete_rfq(self, rfq_id)
+
+    async def get_quotes(self, **kwargs: Any) -> dict[str, Any]:
+        return await communications.get_quotes(self, **kwargs)
+
+    async def create_quote(self, **kwargs: Any) -> dict[str, Any]:
+        return await communications.create_quote(self, **kwargs)
+
+    async def get_quote(self, quote_id: str) -> dict[str, Any]:
+        return await communications.get_quote(self, quote_id)
+
+    async def delete_quote(self, quote_id: str) -> dict[str, Any]:
+        return await communications.delete_quote(self, quote_id)
+
+    async def accept_quote(self, quote_id: str) -> dict[str, Any]:
+        return await communications.accept_quote(self, quote_id)
+
+    # --- Live Data ---
+
+    async def get_live_data(self, milestone_id: str, **kwargs: Any) -> dict[str, Any]:
+        return await live_data.get_live_data(self, milestone_id, **kwargs)
+
+    async def get_live_data_legacy(self, data_type: str, milestone_id: str, **kwargs: Any) -> dict[str, Any]:
+        return await live_data.get_live_data_legacy(self, data_type, milestone_id, **kwargs)
+
+    async def get_live_data_batch(self, milestone_ids: List[str], **kwargs: Any) -> dict[str, Any]:
+        return await live_data.get_live_data_batch(self, milestone_ids, **kwargs)
+
+    async def get_game_stats(self, milestone_id: str) -> dict[str, Any]:
+        return await live_data.get_game_stats(self, milestone_id)
+
+    # --- Milestones ---
+
+    async def get_milestone(self, milestone_id: str) -> dict[str, Any]:
+        return await milestones.get_milestone(self, milestone_id)
+
+    async def get_milestones(self, **kwargs: Any) -> dict[str, Any]:
+        return await milestones.get_milestones(self, **kwargs)
+
+    # --- Structured Targets ---
+
+    async def get_structured_targets(self, **kwargs: Any) -> dict[str, Any]:
+        return await structured_targets.get_structured_targets(self, **kwargs)
+
+    async def get_structured_target(self, structured_target_id: str) -> dict[str, Any]:
+        return await structured_targets.get_structured_target(self, structured_target_id)
+
+    # --- Incentive Programs ---
+
+    async def get_incentive_programs(self, **kwargs: Any) -> dict[str, Any]:
+        return await incentive_programs.get_incentive_programs(self, **kwargs)

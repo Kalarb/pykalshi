@@ -41,3 +41,17 @@ async def get_series_list(
         "cursor": cursor,
     })
     return await client.get(SERIES_URL, params=params)
+
+
+async def get_fee_changes(
+    client: KalshiHttpClient,
+    *,
+    series_ticker: Optional[str] = None,
+    show_historical: Optional[bool] = None,
+) -> dict[str, Any]:
+    """GET /trade-api/v2/series/fee_changes"""
+    params = strip_none({
+        "series_ticker": series_ticker,
+        "show_historical": show_historical,
+    })
+    return await client.get(f"{SERIES_URL}/fee_changes", params=params)

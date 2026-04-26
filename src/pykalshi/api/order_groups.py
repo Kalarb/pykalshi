@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from ._utils import PORTFOLIO_URL
 
@@ -47,4 +47,30 @@ async def reset_order_group(
     """PUT /trade-api/v2/portfolio/order_groups/{order_group_id}/reset"""
     return await client.put(
         f"{PORTFOLIO_URL}/order_groups/{order_group_id}/reset", body={}
+    )
+
+
+async def trigger_order_group(
+    client: KalshiHttpClient,
+    order_group_id: str,
+    *,
+    subaccount: Optional[int] = None,
+) -> dict[str, Any]:
+    """PUT /trade-api/v2/portfolio/order_groups/{order_group_id}/trigger"""
+    path = f"{PORTFOLIO_URL}/order_groups/{order_group_id}/trigger"
+    if subaccount is not None:
+        path += f"?subaccount={subaccount}"
+    return await client.put(path, body={})
+
+
+async def update_order_group_limit(
+    client: KalshiHttpClient,
+    order_group_id: str,
+    *,
+    limit: int,
+) -> dict[str, Any]:
+    """PUT /trade-api/v2/portfolio/order_groups/{order_group_id}/limit"""
+    return await client.put(
+        f"{PORTFOLIO_URL}/order_groups/{order_group_id}/limit",
+        body={"limit": limit},
     )

@@ -13,3 +13,8 @@ if TYPE_CHECKING:
 async def get_api_limits(client: KalshiHttpClient) -> dict[str, Any]:
     """GET /trade-api/v2/account/limits"""
     return await client.get(f"{ACCOUNT_URL}/limits")
+
+
+async def get_endpoint_costs(client: KalshiHttpClient) -> dict[str, Any]:
+    """GET /trade-api/v2/account/endpoint_costs"""
+    return await client.get(f"{ACCOUNT_URL}/endpoint_costs")

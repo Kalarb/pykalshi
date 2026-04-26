@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ._utils import MARKETS_URL, strip_none
+from ._utils import MARKETS_URL, SERIES_URL, strip_none
 
 if TYPE_CHECKING:
     from pykalshi.http_client import KalshiHttpClient
@@ -76,3 +76,37 @@ async def get_trades(
         "min_ts": min_ts,
     })
     return await client.get(f"{MARKETS_URL}/trades", params=params)
+
+
+async def get_market_orderbooks(
+    client: KalshiHttpClient,
+    tickers: list[str],
+) -> dict[str, Any]:
+    """GET /trade-api/v2/markets/orderbooks"""
+    return await client.get(
+        f"{MARKETS_URL}/orderbooks", params={"tickers": ",".join(tickers)}
+    )
+
+
+async def get_market_candlesticks(
+    client: KalshiHttpClient,
+    series_ticker: str,
+    ticker: str,
+    *,
+    start_ts: int,
+    end_ts: int,
+    period_interval: int,
+    include_latest_before_start: Optional[bool] = None,
+) -> dict[str, Any]:
+    """GET /trade-api/v2/series/{series_ticker}/markets/{ticker}/candlesticks"""
+    params: dict[str, Any] = {
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "period_interval": period_interval,
+    }
+    if include_latest_before_start is not None:
+        params["include_latest_before_start"] = include_latest_before_start
+    return await client.get(
+        f"{SERIES_URL}/{series_ticker}/markets/{ticker}/candlesticks",
+        params=params,
+    )
