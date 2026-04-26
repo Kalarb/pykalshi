@@ -16,21 +16,32 @@ from ._observability import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
 
-MSG_TYPE_TO_CHANNEL: Dict[str, str] = {
+# Maps message type -> expected channel name.
+# None means the message can arrive on multiple channels (skip validation).
+MSG_TYPE_TO_CHANNEL: Dict[str, str | None] = {
+    # Orderbook
     "orderbook_snapshot": "orderbook_delta",
     "orderbook_delta": "orderbook_delta",
+    # Market Data
     "ticker": "ticker",
     "trade": "trade",
+    # User Data
     "fill": "fill",
     "market_position": "market_positions",
+    "user_order": "user_orders",
+    # Lifecycle
     "market_lifecycle_v2": "market_lifecycle_v2",
-    "event_lifecycle": "event_lifecycle",
+    "event_lifecycle": None,  # arrives on market_lifecycle_v2 OR multivariate_market_lifecycle
+    "multivariate_market_lifecycle": "multivariate_market_lifecycle",
     "multivariate_lookup": "multivariate",
+    # Communications (RFQs, Quotes)
     "rfq_created": "communications",
     "rfq_deleted": "communications",
     "quote_created": "communications",
     "quote_accepted": "communications",
     "quote_executed": "communications",
+    # Order Groups
+    "order_group_updates": "order_group_updates",
 }
 
 
@@ -180,7 +191,7 @@ class KalshiWebSocketClient:
             chan_state = self._sid_map.get(sid)
             if chan_state:
                 expected_channel = MSG_TYPE_TO_CHANNEL[msg_type]
-                if chan_state.name != expected_channel:
+                if expected_channel is not None and chan_state.name != expected_channel:
                     logger.warning(
                         "Mismatch! Received %s (needs %s) on channel %s (SID %s). Ignoring.",
                         msg_type,
