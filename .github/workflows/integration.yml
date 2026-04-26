@@ -1,0 +1,80 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Daily at 14:00 UTC (10am ET) — well within normal trading hours
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing && uv pip install pyyaml python-dotenv
+
+      - name: Write DEMO credentials
+        run: |
+          echo "$KALSHI_DEMO_PRIVATE_KEY_PEM" > /tmp/demo-key.pem
+          chmod 600 /tmp/demo-key.pem
+          cat > .env << EOF
+          KALSHI_ENVIRONMENT=DEMO
+          KALSHI_DEMO_API_KEY_ID=$KALSHI_DEMO_API_KEY_ID
+          KALSHI_DEMO_PRIVATE_KEY_FILE=/tmp/demo-key.pem
+          EOF
+        env:
+          KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+
+      - name: Check exchange status
+        id: gate
+        run: |
+          uv run python -c "
+          import httpx, os, time, base64
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+
+          key_id = os.environ['KALSHI_DEMO_API_KEY_ID']
+          with open('/tmp/demo-key.pem', 'rb') as f:
+              key = serialization.load_pem_private_key(f.read(), password=None)
+          ts = str(int(time.time() * 1000))
+          path = '/trade-api/v2/exchange/status'
+          msg = (ts + 'GET' + path).encode()
+          sig = base64.b64encode(key.sign(msg, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH), hashes.SHA256())).decode()
+          headers = {'KALSHI-ACCESS-KEY': key_id, 'KALSHI-ACCESS-SIGNATURE': sig, 'KALSHI-ACCESS-TIMESTAMP': ts}
+          resp = httpx.get('https://demo-api.kalshi.co' + path, headers=headers)
+          data = resp.json()
+          active = data.get('exchange_active') or data.get('trading_active', False)
+          if not active:
+              print('::notice::Exchange is in maintenance - skipping integration tests')
+              print('active=false')
+          else:
+              print('Exchange is active')
+              print('active=true')
+          " | tee /tmp/gate-output.txt
+          if grep -q "active=true" /tmp/gate-output.txt; then
+            echo "active=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "active=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+
+      - name: Run integration tests
+        if: steps.gate.outputs.active == 'true'
+        run: uv run pytest tests/test_integration.py tests/test_spec_validation.py -v
+        env:
+          KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+
+      - name: Skipped (maintenance)
+        if: steps.gate.outputs.active != 'true'
+        run: echo "Integration tests skipped — exchange in maintenance window"
