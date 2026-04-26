@@ -1,7 +1,7 @@
 """Shared test fixtures."""
 
 import pytest
-from pykalshi.testing.fixtures import mock_credentials, test_config
+from pykalshi.testing.fixtures import mock_credentials, test_config as _test_config
 from pykalshi.auth import KalshiCredentials
 from pykalshi.config import ClientConfig
 
@@ -13,4 +13,4 @@ def credentials() -> KalshiCredentials:
 
 @pytest.fixture
 def config() -> ClientConfig:
-    return test_config()
+    return _test_config()

@@ -6,7 +6,6 @@ import base64
 import os
 import time
 from dataclasses import dataclass
-from typing import Any
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
