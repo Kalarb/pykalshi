@@ -46,14 +46,26 @@ async def client():
 
 
 async def _retry_until(coro_factory, predicate, timeout=10, interval=1):
-    """Retry a coroutine until predicate returns True or timeout."""
+    """Retry a coroutine until predicate returns True or timeout.
+
+    Handles KalshiAPIError(404) as "not propagated yet" and keeps retrying.
+    Kalshi DEMO has ~5 second propagation delay on writes.
+    """
     deadline = asyncio.get_event_loop().time() + timeout
+    last_result = None
     while True:
-        result = await coro_factory()
-        if predicate(result):
-            return result
+        try:
+            last_result = await coro_factory()
+            if predicate(last_result):
+                return last_result
+        except KalshiAPIError as e:
+            if e.status_code != 404:
+                raise
+            # 404 = not propagated yet, keep retrying
         if asyncio.get_event_loop().time() >= deadline:
-            return result
+            if last_result is not None:
+                return last_result
+            raise TimeoutError("Timed out waiting for resource to propagate")
         await asyncio.sleep(interval)
 
 
@@ -434,8 +446,12 @@ class TestOrderGroupsIntegration:
         assert group_id is not None
 
         try:
-            # Get it
-            got = await client.get_order_group(group_id)
+            # Get it (may need retry due to propagation delay)
+            got = await _retry_until(
+                lambda: client.get_order_group(group_id),
+                lambda r: isinstance(r, dict),
+                timeout=10,
+            )
             assert isinstance(got, dict)
 
             # Reset it
