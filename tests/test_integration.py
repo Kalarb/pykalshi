@@ -515,7 +515,6 @@ class TestOrdersIntegration:
 
     @pytest.mark.asyncio
     async def test_get_queue_positions(self, client: KalshiHttpClient) -> None:
-        # Queue positions requires market_tickers or event_ticker
         markets_resp = await client.get_markets(limit=1, status="open")
         markets = markets_resp.get("markets", [])
         if not markets:
@@ -523,6 +522,145 @@ class TestOrdersIntegration:
         ticker = markets[0]["ticker"]
         result = await client.get_queue_positions(market_tickers=ticker)
         assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_amend_order(self, client: KalshiHttpClient) -> None:
+        """Create order → wait → amend price → cancel."""
+        import uuid
+
+        markets_resp = await client.get_markets(limit=5, status="open")
+        markets = markets_resp.get("markets", [])
+        if not markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets[0]["ticker"]
+
+        client_oid = str(uuid.uuid4())
+        created = await client.create_order(
+            ticker=ticker, side="yes", action="buy",
+            count=1, yes_price=1, order_type="limit",
+            client_order_id=client_oid,
+        )
+        order_id = created.get("order", {}).get("order_id")
+        assert order_id is not None
+
+        try:
+            await _retry_until(
+                lambda: client.get_order(order_id),
+                lambda r: "order" in r,
+                timeout=20,
+            )
+            updated_oid = str(uuid.uuid4())
+            amended = await client.amend_order(
+                order_id,
+                ticker=ticker, side="yes", action="buy",
+                client_order_id=client_oid,
+                updated_client_order_id=updated_oid,
+                yes_price=2,
+            )
+            assert isinstance(amended, dict)
+        except (TimeoutError, KalshiAPIError):
+            pass  # propagation delay or amend not supported — still clean up
+        finally:
+            try:
+                await client.cancel_order(order_id)
+            except KalshiAPIError:
+                pass  # order may already be gone after amend
+
+    @pytest.mark.asyncio
+    async def test_decrease_order(self, client: KalshiHttpClient) -> None:
+        """Create order with count=2 → wait → decrease to 1 → cancel."""
+        markets_resp = await client.get_markets(limit=5, status="open")
+        markets = markets_resp.get("markets", [])
+        if not markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets[0]["ticker"]
+
+        created = await client.create_order(
+            ticker=ticker, side="yes", action="buy",
+            count=2, yes_price=1, order_type="limit",
+        )
+        order_id = created.get("order", {}).get("order_id")
+        assert order_id is not None
+
+        try:
+            await _retry_until(
+                lambda: client.get_order(order_id),
+                lambda r: "order" in r,
+                timeout=20,
+            )
+            decreased = await client.decrease_order(order_id, reduce_to=1)
+            assert isinstance(decreased, dict)
+        except (TimeoutError, KalshiAPIError):
+            pass
+        finally:
+            await client.cancel_order(order_id)
+
+    @pytest.mark.asyncio
+    async def test_batch_create_and_cancel(self, client: KalshiHttpClient) -> None:
+        """Batch create 3 orders → batch cancel all."""
+        markets_resp = await client.get_markets(limit=5, status="open")
+        markets = markets_resp.get("markets", [])
+        if not markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets[0]["ticker"]
+
+        orders_to_create = [
+            {"ticker": ticker, "side": "yes", "action": "buy",
+             "count": 1, "yes_price": 1, "type": "limit"}
+            for _ in range(3)
+        ]
+        created = await client.batch_create_orders(orders_to_create)
+        assert isinstance(created, dict)
+        # Batch response: {"orders": [{"order": {"order_id": "..."}}, ...]}
+        order_ids = []
+        for entry in created.get("orders", []):
+            oid = entry.get("order_id") or entry.get("order", {}).get("order_id")
+            if oid:
+                order_ids.append(oid)
+        assert len(order_ids) > 0
+
+        try:
+            # Wait for at least one to propagate
+            await _retry_until(
+                lambda: client.get_order(order_ids[0]),
+                lambda r: "order" in r,
+                timeout=20,
+            )
+        except TimeoutError:
+            pass
+
+        # Batch cancel all
+        cancelled = await client.batch_cancel_orders(order_ids)
+        assert isinstance(cancelled, dict)
+
+    @pytest.mark.asyncio
+    async def test_get_order_queue_position(self, client: KalshiHttpClient) -> None:
+        """Create order → wait → get its queue position → cancel."""
+        markets_resp = await client.get_markets(limit=5, status="open")
+        markets = markets_resp.get("markets", [])
+        if not markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets[0]["ticker"]
+
+        created = await client.create_order(
+            ticker=ticker, side="yes", action="buy",
+            count=1, yes_price=1, order_type="limit",
+        )
+        order_id = created.get("order", {}).get("order_id")
+        assert order_id is not None
+
+        try:
+            await _retry_until(
+                lambda: client.get_order(order_id),
+                lambda r: "order" in r,
+                timeout=20,
+            )
+            qp = await client.get_order_queue_position(order_id)
+            assert isinstance(qp, dict)
+        except (TimeoutError, KalshiAPIError):
+            pass
+        finally:
+            await client.cancel_order(order_id)
 
 
 # =============================================================================

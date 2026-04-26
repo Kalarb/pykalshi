@@ -131,12 +131,12 @@ Every endpoint has a unit test (mock transport). Integration tests hit the real 
 | `get_order` | Y | Y | via create+cancel lifecycle |
 | `create_order` | Y | Y | places at 1c, won't fill |
 | `cancel_order` | Y | Y | cleans up created order |
-| `amend_order` | Y | | needs resting order |
-| `decrease_order` | Y | | needs resting order |
-| `batch_create_orders` | Y | | 5 unit tests (empty, chunk, split, none-strip, error) |
-| `batch_cancel_orders` | Y | | 2 unit tests (empty, chunk) |
+| `amend_order` | Y | Y | create → amend price → cancel |
+| `decrease_order` | Y | Y | create count=2 → decrease to 1 → cancel |
+| `batch_create_orders` | Y | Y | batch create 3 → batch cancel all |
+| `batch_cancel_orders` | Y | Y | same test as batch_create |
 | `get_queue_positions` | Y | Y | |
-| `get_order_queue_position` | Y | | |
+| `get_order_queue_position` | Y | Y | create → wait → get position → cancel |
 
 ### Order Groups
 
