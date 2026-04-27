@@ -117,9 +117,7 @@ class KalshiHttpClient:
         if waited > 0.001:
             self._rate_limiter_wait.record(waited)
 
-        headers = self._credentials.auth_headers(method, path)
-        if "headers" in kwargs:
-            headers.update(kwargs["headers"])
+        headers = {**self._credentials.auth_headers(method, path), **kwargs.pop("headers", {})}
         kwargs["headers"] = headers
 
         retries = 0
@@ -159,8 +157,19 @@ class KalshiHttpClient:
                 return response.json()
 
             except httpx.RequestError as e:
-                logger.error("Network error: %s", e)
-                raise
+                if retries >= self._config.max_retries:
+                    logger.error("Network error after %d retries: %s", retries, e)
+                    raise
+                wait_time = self._config.base_retry_delay * (2 ** retries)
+                logger.warning(
+                    "Network error: %s. Retrying in %.2fs (%d/%d)",
+                    e,
+                    wait_time,
+                    retries + 1,
+                    self._config.max_retries,
+                )
+                await asyncio.sleep(wait_time)
+                retries += 1
 
     # --- HTTP verbs ---
 
@@ -179,10 +188,14 @@ class KalshiHttpClient:
         )
 
     async def put(
-        self, path: str, body: dict[str, Any], write_cost: float = 1.0
+        self,
+        path: str,
+        body: dict[str, Any],
+        write_cost: float = 1.0,
+        params: Optional[Dict[str, Any]] = None,
     ) -> Any:
         return await self._execute_request(
-            "PUT", path, 1.0, write_cost, json=body
+            "PUT", path, 1.0, write_cost, json=body, **({"params": params} if params else {})
         )
 
     async def delete(
@@ -229,11 +242,11 @@ class KalshiHttpClient:
         return await orders.decrease_order(self, order_id, **kwargs)
 
     async def batch_create_orders(
-        self, orders_list: List[Dict[str, Any]]
+        self, orders_list: list[dict[str, Any]]
     ) -> dict[str, Any]:
         return await orders.batch_create_orders(self, orders_list)
 
-    async def batch_cancel_orders(self, order_ids: List[str]) -> dict[str, Any]:
+    async def batch_cancel_orders(self, order_ids: list[str]) -> dict[str, Any]:
         return await orders.batch_cancel_orders(self, order_ids)
 
     async def get_queue_positions(self, **kwargs: Any) -> dict[str, Any]:
@@ -281,8 +294,8 @@ class KalshiHttpClient:
     async def get_markets(self, **kwargs: Any) -> dict[str, Any]:
         return await markets.get_markets(self, **kwargs)
 
-    async def get_market_orderbook(self, ticker: str) -> dict[str, Any]:
-        return await markets.get_market_orderbook(self, ticker)
+    async def get_market_orderbook(self, ticker: str, **kwargs: Any) -> dict[str, Any]:
+        return await markets.get_market_orderbook(self, ticker, **kwargs)
 
     async def get_trades(self, **kwargs: Any) -> dict[str, Any]:
         return await markets.get_trades(self, **kwargs)

@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Awaitable, Callable, Dict, Optional
 
 import orjson
 import websockets
 
 from .auth import KalshiCredentials
 from .config import ClientConfig
+from .exceptions import KalshiSequenceGapError
 from ._observability import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,11 @@ class ChannelState:
     seq: int = 0
 
 
+def _log_callback_exception(task: asyncio.Task[None]) -> None:
+    if not task.cancelled() and task.exception():
+        logger.error("Message callback failed: %s", task.exception())
+
+
 class KalshiWebSocketClient:
     """Robust WebSocket client with auto-reconnect and subscription management."""
 
@@ -68,7 +74,7 @@ class KalshiWebSocketClient:
     ) -> None:
         self._credentials = credentials
         self._config = config
-        self.ws: Any = None
+        self.ws: websockets.WebSocketClientProtocol | None = None
         self._url_suffix = "/trade-api/ws/v2"
         self._message_id = 1
         self._listening = False
@@ -179,6 +185,9 @@ class KalshiWebSocketClient:
                         chan_state.seq + 1,
                         seq,
                     )
+                    raise KalshiSequenceGapError(
+                        chan_state.name, chan_state.seq + 1, seq
+                    )
                 chan_state.seq = seq
 
         elif msg_type == "unsubscribed":
@@ -201,16 +210,21 @@ class KalshiWebSocketClient:
                     )
                 elif seq is not None:
                     if chan_state.seq != 0 and (chan_state.seq + 1) != seq:
+                        self._sequence_gaps.add(1)
                         logger.warning(
                             "Gap on %s: expected %d, got %d",
                             chan_state.name,
                             chan_state.seq + 1,
                             seq,
                         )
+                        raise KalshiSequenceGapError(
+                            chan_state.name, chan_state.seq + 1, seq
+                        )
                     chan_state.seq = seq
 
         if self.on_message_callback:
-            asyncio.create_task(self.on_message_callback(message))
+            task = asyncio.create_task(self.on_message_callback(message))
+            task.add_done_callback(_log_callback_exception)
 
     async def add_markets(self, market_tickers: list[str], channels: list[str]) -> None:
         """Batch-subscribe multiple markets across channels."""

@@ -31,6 +31,7 @@ async def get_events(
     status: Optional[str] = None,
     series_ticker: Optional[str] = None,
     min_close_ts: Optional[int] = None,
+    min_updated_ts: Optional[int] = None,
 ) -> dict[str, Any]:
     """GET /trade-api/v2/events"""
     params = strip_none({
@@ -41,6 +42,7 @@ async def get_events(
         "status": status,
         "series_ticker": series_ticker,
         "min_close_ts": min_close_ts,
+        "min_updated_ts": min_updated_ts,
     })
     return await client.get(EVENTS_URL, params=params)
 

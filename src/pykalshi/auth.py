@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.exceptions import InvalidSignature
 
 from .exceptions import KalshiAuthError
 
@@ -68,7 +67,7 @@ class KalshiCredentials:
                 hashes.SHA256(),
             )
             return base64.b64encode(signature).decode("utf-8")
-        except InvalidSignature as e:
+        except Exception as e:
             raise KalshiAuthError("RSA-PSS signing failed") from e
 
     def auth_headers(self, method: str, path: str) -> dict[str, str]:

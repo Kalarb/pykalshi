@@ -364,13 +364,15 @@ class TestSearch:
 class TestBatchOperations:
     @pytest.mark.asyncio
     async def test_batch_create_empty(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        async with _client(creds, cfg, {}) as c:
+        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"orders": []}}
+        async with _client(creds, cfg, routes) as c:
             result = await c.batch_create_orders([])
             assert result == {"orders": []}
 
     @pytest.mark.asyncio
     async def test_batch_cancel_empty(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        async with _client(creds, cfg, {}) as c:
+        routes = {("DELETE", "/trade-api/v2/portfolio/orders"): {"orders": []}}
+        async with _client(creds, cfg, routes) as c:
             result = await c.batch_cancel_orders([])
             assert result == {"orders": []}
 
@@ -393,8 +395,7 @@ class TestBatchOperations:
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.batch_cancel_orders(["o1", "o2", "o3"])
-            # Mock returns same response for each chunk
-            assert len(result["orders"]) >= 1
+            assert len(result["orders"]) == 1
 
     @pytest.mark.asyncio
     async def test_batch_create_strips_none(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
@@ -406,17 +407,17 @@ class TestBatchOperations:
             assert len(result["orders"]) == 1
 
     @pytest.mark.asyncio
-    async def test_batch_create_large_splits_groups(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        """25 orders should be split across groups (write_cap=10, batch_limit=20)."""
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"orders": [{"order_id": "ok"}]}}
-        orders = [
+    async def test_batch_create_large(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        """25 orders sent in a single batch call (thin wrapper, no chunking)."""
+        expected = [{"order_id": f"o{i}"} for i in range(25)]
+        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"orders": expected}}
+        orders_list = [
             {"ticker": f"T{i}", "side": "yes", "action": "buy", "count": 1}
             for i in range(25)
         ]
         async with _client(creds, cfg, routes) as c:
-            result = await c.batch_create_orders(orders)
-            # Should succeed — exact count depends on grouping, but should have results
-            assert len(result["orders"]) > 0
+            result = await c.batch_create_orders(orders_list)
+            assert len(result["orders"]) == 25
 
     @pytest.mark.asyncio
     async def test_batch_create_propagates_error(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:

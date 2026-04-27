@@ -89,6 +89,7 @@ async def get_quotes(
     status: Optional[str] = None,
     quote_creator_user_id: Optional[str] = None,
     rfq_creator_user_id: Optional[str] = None,
+    rfq_creator_subtrader_id: Optional[str] = None,
     rfq_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """GET /trade-api/v2/communications/quotes"""
@@ -100,6 +101,7 @@ async def get_quotes(
         "status": status,
         "quote_creator_user_id": quote_creator_user_id,
         "rfq_creator_user_id": rfq_creator_user_id,
+        "rfq_creator_subtrader_id": rfq_creator_subtrader_id,
         "rfq_id": rfq_id,
     })
     return await client.get(f"{COMMUNICATIONS_URL}/quotes", params=params)

@@ -52,10 +52,14 @@ async def get_markets(
 
 
 async def get_market_orderbook(
-    client: KalshiHttpClient, ticker: str
+    client: KalshiHttpClient,
+    ticker: str,
+    *,
+    depth: Optional[int] = None,
 ) -> dict[str, Any]:
     """GET /trade-api/v2/markets/{ticker}/orderbook"""
-    return await client.get(f"{MARKETS_URL}/{ticker}/orderbook")
+    params = strip_none({"depth": depth})
+    return await client.get(f"{MARKETS_URL}/{ticker}/orderbook", params=params)
 
 
 async def get_trades(

@@ -21,7 +21,7 @@ async def get_positions(
     ticker: Optional[str] = None,
     event_ticker: Optional[str] = None,
     count_filter: Optional[str] = None,
-    limit: Optional[str] = None,
+    limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
     """GET /trade-api/v2/portfolio/positions"""

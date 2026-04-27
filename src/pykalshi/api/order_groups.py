@@ -57,10 +57,12 @@ async def trigger_order_group(
     subaccount: Optional[int] = None,
 ) -> dict[str, Any]:
     """PUT /trade-api/v2/portfolio/order_groups/{order_group_id}/trigger"""
-    path = f"{PORTFOLIO_URL}/order_groups/{order_group_id}/trigger"
-    if subaccount is not None:
-        path += f"?subaccount={subaccount}"
-    return await client.put(path, body={})
+    params = {"subaccount": subaccount} if subaccount is not None else None
+    return await client.put(
+        f"{PORTFOLIO_URL}/order_groups/{order_group_id}/trigger",
+        body={},
+        params=params,
+    )
 
 
 async def update_order_group_limit(

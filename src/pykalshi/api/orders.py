@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
-import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ._utils import PORTFOLIO_URL, strip_none
 
 if TYPE_CHECKING:
     from pykalshi.http_client import KalshiHttpClient
-
-logger = logging.getLogger(__name__)
 
 
 async def get_orders(
@@ -171,166 +167,16 @@ async def get_order_queue_position(
 
 async def batch_create_orders(
     client: KalshiHttpClient,
-    orders_list: List[Dict[str, Any]],
+    orders_list: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """POST /trade-api/v2/portfolio/orders/batched
-
-    Splits orders into groups based on write capacity and batch limit,
-    executing groups sequentially and chunks within a group concurrently.
-    """
+    """POST /trade-api/v2/portfolio/orders/batched"""
     cleaned = [strip_none(order) for order in orders_list]
-    if not cleaned:
-        return {"orders": []}
-
-    batch_limit = 20
-    write_cap = int(client.limiter.write_capacity)
-    cost_per_item = 1
-
-    request_groups: List[List[List[Dict[str, Any]]]] = []
-    concurrent_batches: List[List[Dict[str, Any]]] = []
-    virtual_budget = max(write_cap, cost_per_item)
-
-    idx = 0
-    total = len(cleaned)
-
-    while idx < total:
-        if virtual_budget < cost_per_item:
-            if concurrent_batches:
-                request_groups.append(concurrent_batches)
-                concurrent_batches = []
-            virtual_budget = write_cap
-
-        chunk_size = min(batch_limit, virtual_budget, total - idx)
-        if chunk_size < 1:
-            chunk_size = 1
-
-        chunk = cleaned[idx : idx + chunk_size]
-        concurrent_batches.append(chunk)
-
-        virtual_budget -= len(chunk) * cost_per_item
-        idx += len(chunk)
-
-        if virtual_budget < cost_per_item:
-            request_groups.append(concurrent_batches)
-            concurrent_batches = []
-            virtual_budget = write_cap
-
-    if concurrent_batches:
-        request_groups.append(concurrent_batches)
-
-    final_results: List[Any] = []
-    errors: List[Exception] = []
-
-    async def _process_batch(chunk: List[Dict[str, Any]]) -> Any:
-        try:
-            return await client.post(
-                f"{PORTFOLIO_URL}/orders/batched",
-                body={"orders": chunk},
-                write_cost=float(len(chunk)),
-            )
-        except Exception as e:
-            return e
-
-    for group in request_groups:
-        results = await asyncio.gather(
-            *[_process_batch(chunk) for chunk in group],
-            return_exceptions=True,
-        )
-        for res in results:
-            if isinstance(res, Exception):
-                logger.error(f"Batch create failed: {res}")
-                errors.append(res)
-            elif isinstance(res, dict) and "orders" in res:
-                final_results.extend(res["orders"])
-            elif isinstance(res, list):
-                final_results.extend(res)
-            else:
-                final_results.append(res)
-
-    if not final_results and errors:
-        raise errors[0]
-
-    return {"orders": final_results}
+    return await client.post(f"{PORTFOLIO_URL}/orders/batched", body={"orders": cleaned})
 
 
 async def batch_cancel_orders(
     client: KalshiHttpClient,
-    order_ids: List[str],
+    order_ids: list[str],
 ) -> dict[str, Any]:
-    """DELETE /trade-api/v2/portfolio/orders/batched
-
-    Splits cancels into groups respecting write capacity.
-    """
-    if not order_ids:
-        return {"orders": []}
-
-    batch_limit = 20
-    write_cap = int(client.limiter.write_capacity)
-    cost_per_item = 0.2
-
-    request_groups: List[List[List[str]]] = []
-    concurrent_batches: List[List[str]] = []
-    virtual_budget = float(max(write_cap, cost_per_item))
-
-    idx = 0
-    total = len(order_ids)
-
-    while idx < total:
-        if virtual_budget < (cost_per_item - 0.001):
-            if concurrent_batches:
-                request_groups.append(concurrent_batches)
-                concurrent_batches = []
-            virtual_budget = float(write_cap)
-
-        max_items = int(virtual_budget / cost_per_item)
-        chunk_size = min(batch_limit, max_items, total - idx)
-        if chunk_size < 1:
-            chunk_size = 1
-
-        chunk = order_ids[idx : idx + chunk_size]
-        concurrent_batches.append(chunk)
-
-        virtual_budget -= len(chunk) * cost_per_item
-        idx += len(chunk)
-
-        if virtual_budget < (cost_per_item - 0.001):
-            request_groups.append(concurrent_batches)
-            concurrent_batches = []
-            virtual_budget = float(write_cap)
-
-    if concurrent_batches:
-        request_groups.append(concurrent_batches)
-
-    final_results: List[Any] = []
-    errors: List[Exception] = []
-
-    async def _process_batch(chunk: List[str]) -> Any:
-        try:
-            return await client.delete(
-                f"{PORTFOLIO_URL}/orders/batched",
-                body={"ids": chunk},
-                write_cost=len(chunk) * cost_per_item,
-            )
-        except Exception as e:
-            return e
-
-    for group in request_groups:
-        results = await asyncio.gather(
-            *[_process_batch(chunk) for chunk in group],
-            return_exceptions=True,
-        )
-        for res in results:
-            if isinstance(res, Exception):
-                logger.error(f"Batch cancel failed: {res}")
-                errors.append(res)
-            elif isinstance(res, dict) and "orders" in res:
-                final_results.extend(res["orders"])
-            elif isinstance(res, list):
-                final_results.extend(res)
-            else:
-                final_results.append(res)
-
-    if not final_results and errors:
-        raise errors[0]
-
-    return {"orders": final_results}
+    """DELETE /trade-api/v2/portfolio/orders/batched"""
+    return await client.delete(f"{PORTFOLIO_URL}/orders/batched", body={"ids": order_ids})

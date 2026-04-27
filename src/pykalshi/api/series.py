@@ -30,6 +30,7 @@ async def get_series_list(
     include_volume: Optional[bool] = None,
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
+    min_updated_ts: Optional[int] = None,
 ) -> dict[str, Any]:
     """GET /trade-api/v2/series"""
     params = strip_none({
@@ -39,6 +40,7 @@ async def get_series_list(
         "include_volume": include_volume,
         "limit": limit,
         "cursor": cursor,
+        "min_updated_ts": min_updated_ts,
     })
     return await client.get(SERIES_URL, params=params)
 
