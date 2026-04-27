@@ -9,9 +9,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  integration-tests:
+  exchange-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 2
+    outputs:
+      active: ${{ steps.gate.outputs.active }}
     steps:
       - uses: actions/checkout@v5
 
@@ -20,26 +22,14 @@ jobs:
           enable-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra testing && uv pip install pyyaml python-dotenv
+        run: uv sync --extra testing
 
       - name: Write DEMO credentials
         run: |
           echo "$KALSHI_DEMO_PRIVATE_KEY_PEM" > /tmp/demo-key.pem
           chmod 600 /tmp/demo-key.pem
-          echo "$KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM" > /tmp/prod-ro-key.pem
-          chmod 600 /tmp/prod-ro-key.pem
-          cat > .env << EOF
-          KALSHI_ENVIRONMENT=DEMO
-          KALSHI_DEMO_API_KEY_ID=$KALSHI_DEMO_API_KEY_ID
-          KALSHI_DEMO_PRIVATE_KEY_FILE=/tmp/demo-key.pem
-          KALSHI_PROD_READ_ONLY_API_KEY_ID=$KALSHI_PROD_READ_ONLY_API_KEY_ID
-          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_FILE=/tmp/prod-ro-key.pem
-          EOF
         env:
-          KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
           KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
-          KALSHI_PROD_READ_ONLY_API_KEY_ID: ${{ secrets.KALSHI_PROD_READ_ONLY_API_KEY_ID }}
-          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM }}
 
       - name: Check exchange status
         id: gate
@@ -75,18 +65,62 @@ jobs:
         env:
           KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
 
-      - name: Run REST integration tests
-        if: steps.gate.outputs.active == 'true'
-        run: uv run pytest tests/test_integration.py tests/test_spec_validation.py -v
+  rest-integration:
+    needs: exchange-gate
+    if: needs.exchange-gate.outputs.active == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Write credentials
+        run: |
+          echo "$KALSHI_DEMO_PRIVATE_KEY_PEM" > /tmp/demo-key.pem
+          chmod 600 /tmp/demo-key.pem
+          cat > .env << EOF
+          KALSHI_DEMO_API_KEY_ID=$KALSHI_DEMO_API_KEY_ID
+          KALSHI_DEMO_PRIVATE_KEY_FILE=/tmp/demo-key.pem
+          EOF
         env:
           KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
 
-      - name: Run WebSocket integration tests
-        if: steps.gate.outputs.active == 'true'
-        run: uv run pytest tests/test_ws_integration.py -v
+      - name: Run REST integration + spec validation
+        run: uv run pytest tests/test_integration.py tests/test_spec_validation.py -v
+
+  ws-integration:
+    needs: exchange-gate
+    if: needs.exchange-gate.outputs.active == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Write credentials
+        run: |
+          echo "$KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM" > /tmp/prod-ro-key.pem
+          chmod 600 /tmp/prod-ro-key.pem
+          cat > .env << EOF
+          KALSHI_PROD_READ_ONLY_API_KEY_ID=$KALSHI_PROD_READ_ONLY_API_KEY_ID
+          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_FILE=/tmp/prod-ro-key.pem
+          EOF
         env:
           KALSHI_PROD_READ_ONLY_API_KEY_ID: ${{ secrets.KALSHI_PROD_READ_ONLY_API_KEY_ID }}
+          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM }}
 
-      - name: Skipped (maintenance)
-        if: steps.gate.outputs.active != 'true'
-        run: echo "Integration tests skipped — exchange in maintenance window"
+      - name: Run WebSocket integration tests
+        run: uv run pytest tests/test_ws_integration.py -v
