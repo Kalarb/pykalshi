@@ -21,7 +21,16 @@ async def get_orders(
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/orders"""
+    """Get Orders.
+    
+    GET /trade-api/v2/portfolio/orders
+    
+    Restricts the response to orders that have a certain status: resting, canceled, or
+executed. Orders that have been canceled or fully executed before the historical cutoff
+are only available via `GET /historical/orders`. Resting orders will always be available
+through this endpoint. See [Historical
+Data](https://kalshi.com/docs/getting_started/historical_data) for details.
+    """
     params = strip_none({
         "ticker": ticker,
         "event_ticker": event_ticker,
@@ -35,7 +44,12 @@ async def get_orders(
 
 
 async def get_order(client: KalshiHttpClient, order_id: str) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/orders/{order_id}"""
+    """Get Order.
+    
+    GET /trade-api/v2/portfolio/orders/{order_id}
+    
+    Endpoint for getting a single order.
+    """
     return await client.get(f"{PORTFOLIO_URL}/orders/{order_id}")
 
 
@@ -62,7 +76,13 @@ async def create_order(
     order_group_id: Optional[str] = None,
     cancel_order_on_pause: Optional[bool] = None,
 ) -> dict[str, Any]:
-    """POST /trade-api/v2/portfolio/orders"""
+    """Create Order.
+    
+    POST /trade-api/v2/portfolio/orders
+    
+    Endpoint for submitting orders in a market. Each user is limited to 200 000 open orders
+at a time.
+    """
     payload = strip_none({
         "ticker": ticker,
         "side": side,
@@ -88,7 +108,17 @@ async def create_order(
 
 
 async def cancel_order(client: KalshiHttpClient, order_id: str) -> dict[str, Any]:
-    """DELETE /trade-api/v2/portfolio/orders/{order_id}"""
+    """Cancel Order.
+    
+    DELETE /trade-api/v2/portfolio/orders/{order_id}
+    
+    Endpoint for canceling orders. The value for the orderId should match the id field of
+the order you want to decrease. Commonly, DELETE-type endpoints return 204 status with
+no body content on success. But we can't completely delete the order, as it may be
+partially filled already. Instead, the DeleteOrder endpoint reduce the order completely,
+essentially zeroing the remaining resting contracts on it. The zeroed order is returned
+on the response payload as a form of validation for the client.
+    """
     return await client.delete(f"{PORTFOLIO_URL}/orders/{order_id}", body={})
 
 
@@ -108,7 +138,13 @@ async def amend_order(
     yes_price_dollars: Optional[str] = None,
     no_price_dollars: Optional[str] = None,
 ) -> dict[str, Any]:
-    """POST /trade-api/v2/portfolio/orders/{order_id}/amend"""
+    """Amend Order.
+    
+    POST /trade-api/v2/portfolio/orders/{order_id}/amend
+    
+    Endpoint for amending the max number of fillable contracts and/or price in an existing
+order. Max fillable contracts is `remaining_count` + `fill_count`.
+    """
     payload = strip_none({
         "ticker": ticker,
         "side": side,
@@ -134,7 +170,14 @@ async def decrease_order(
     reduce_by_fp: Optional[str] = None,
     reduce_to_fp: Optional[str] = None,
 ) -> dict[str, Any]:
-    """POST /trade-api/v2/portfolio/orders/{order_id}/decrease"""
+    """Decrease Order.
+    
+    POST /trade-api/v2/portfolio/orders/{order_id}/decrease
+    
+    Endpoint for decreasing the number of contracts in an existing order. This is the only
+kind of edit available on order quantity. Cancelling an order is equivalent to
+decreasing an order amount to zero.
+    """
     payload = strip_none({
         "reduce_by": reduce_by,
         "reduce_to": reduce_to,
@@ -150,7 +193,14 @@ async def get_queue_positions(
     market_tickers: Optional[str] = None,
     event_ticker: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/orders/queue_positions"""
+    """Get Queue Positions for Orders.
+    
+    GET /trade-api/v2/portfolio/orders/queue_positions
+    
+    Endpoint for getting queue positions for all resting orders. Queue position represents
+the number of contracts that need to be matched before an order receives a partial or
+full match, determined using price-time priority.
+    """
     params = strip_none({
         "market_tickers": market_tickers,
         "event_ticker": event_ticker,
@@ -161,7 +211,14 @@ async def get_queue_positions(
 async def get_order_queue_position(
     client: KalshiHttpClient, order_id: str
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/orders/{order_id}/queue_position"""
+    """Get Order Queue Position.
+    
+    GET /trade-api/v2/portfolio/orders/{order_id}/queue_position
+    
+    Endpoint for getting an order's queue position in the order book. This represents the
+amount of orders that need to be matched before this order receives a partial or full
+match. Queue position is determined using a price-time priority.
+    """
     return await client.get(f"{PORTFOLIO_URL}/orders/{order_id}/queue_position")
 
 
@@ -169,7 +226,13 @@ async def batch_create_orders(
     client: KalshiHttpClient,
     orders_list: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """POST /trade-api/v2/portfolio/orders/batched"""
+    """Batch Create Orders.
+    
+    POST /trade-api/v2/portfolio/orders/batched
+    
+    Endpoint for submitting a batch of orders. The maximum batch size scales with your
+tier's write budget — see [Rate Limits and Tiers](/getting_started/rate_limits).
+    """
     cleaned = [strip_none(order) for order in orders_list]
     return await client.post(f"{PORTFOLIO_URL}/orders/batched", body={"orders": cleaned})
 
@@ -178,5 +241,11 @@ async def batch_cancel_orders(
     client: KalshiHttpClient,
     order_ids: list[str],
 ) -> dict[str, Any]:
-    """DELETE /trade-api/v2/portfolio/orders/batched"""
+    """Batch Cancel Orders.
+    
+    DELETE /trade-api/v2/portfolio/orders/batched
+    
+    Endpoint for cancelling a batch of orders. The maximum batch size scales with your
+tier's write budget — see [Rate Limits and Tiers](/getting_started/rate_limits).
+    """
     return await client.delete(f"{PORTFOLIO_URL}/orders/batched", body={"ids": order_ids})

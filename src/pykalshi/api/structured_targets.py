@@ -19,7 +19,12 @@ async def get_structured_targets(
     page_size: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/structured_targets"""
+    """Get Structured Targets.
+    
+    GET /trade-api/v2/structured_targets
+    
+    Page size (min: 1, max: 2000)
+    """
     params = strip_none({
         "ids": ",".join(ids) if ids else None,
         "type": target_type,
@@ -33,5 +38,10 @@ async def get_structured_targets(
 async def get_structured_target(
     client: KalshiHttpClient, structured_target_id: str
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/structured_targets/{structured_target_id}"""
+    """Get Structured Target.
+    
+    GET /trade-api/v2/structured_targets/{structured_target_id}
+    
+    Endpoint for getting data about a specific structured target by its ID.
+    """
     return await client.get(f"{STRUCTURED_TARGETS_URL}/{structured_target_id}")

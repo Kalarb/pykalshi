@@ -11,7 +11,13 @@ if TYPE_CHECKING:
 
 
 async def get_cutoff(client: KalshiHttpClient) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/cutoff"""
+    """Get Historical Cutoff Timestamps.
+    
+    GET /trade-api/v2/historical/cutoff
+    
+    Returns the cutoff timestamps that define the boundary between **live** and
+**historical** data.
+    """
     return await client.get(f"{HISTORICAL_URL}/cutoff")
 
 
@@ -25,7 +31,13 @@ async def get_historical_markets(
     series_ticker: Optional[str] = None,
     mve_filter: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/markets"""
+    """Get Historical Markets.
+    
+    GET /trade-api/v2/historical/markets
+    
+    Endpoint for getting markets that have been archived to the historical database. Filters
+are mutually exclusive.
+    """
     params = strip_none({
         "limit": limit,
         "cursor": cursor,
@@ -40,7 +52,13 @@ async def get_historical_markets(
 async def get_historical_market(
     client: KalshiHttpClient, ticker: str
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/markets/{ticker}"""
+    """Get Historical Market.
+    
+    GET /trade-api/v2/historical/markets/{ticker}
+    
+    Endpoint for getting data about a specific market by its ticker from the historical
+database.
+    """
     return await client.get(f"{HISTORICAL_URL}/markets/{ticker}")
 
 
@@ -52,7 +70,14 @@ async def get_historical_market_candlesticks(
     end_ts: int,
     period_interval: int,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/markets/{ticker}/candlesticks"""
+    """Get Historical Market Candlesticks.
+    
+    GET /trade-api/v2/historical/markets/{ticker}/candlesticks
+    
+    Endpoint for fetching historical candlestick data for markets that have been archived
+from the live data set. Time period length of each candlestick in minutes. Valid values:
+1 (1 minute), 60 (1 hour), 1440 (1 day).
+    """
     params = {
         "start_ts": start_ts,
         "end_ts": end_ts,
@@ -71,7 +96,13 @@ async def get_historical_fills(
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/fills"""
+    """Get Historical Fills.
+    
+    GET /trade-api/v2/historical/fills
+    
+    Endpoint for getting all historical fills for the member. A fill is when a trade you
+have is matched.
+    """
     params = strip_none({
         "ticker": ticker,
         "max_ts": max_ts,
@@ -89,7 +120,12 @@ async def get_historical_orders(
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/orders"""
+    """Get Historical Orders.
+    
+    GET /trade-api/v2/historical/orders
+    
+    Endpoint for getting orders that have been archived to the historical database.
+    """
     params = strip_none({
         "ticker": ticker,
         "max_ts": max_ts,
@@ -108,7 +144,14 @@ async def get_historical_trades(
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/historical/trades"""
+    """Get Historical Trades.
+    
+    GET /trade-api/v2/historical/trades
+    
+    Endpoint for getting all historical trades for all markets. Trades that were filled
+before the historical cutoff are available via this endpoint. See [Historical
+Data](https://kalshi.com/docs/getting_started/historical_data) for details.
+    """
     params = strip_none({
         "ticker": ticker,
         "min_ts": min_ts,

@@ -18,7 +18,13 @@ async def get_incentive_programs(
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/incentive_programs"""
+    """Get Incentives.
+    
+    GET /trade-api/v2/incentive_programs
+    
+    List incentives with optional filters. Incentives are rewards programs for trading
+activity on specific markets.
+    """
     params = strip_none({
         "status": status,
         "type": program_type,

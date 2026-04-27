@@ -16,7 +16,16 @@ async def get_series(
     *,
     include_volume: Optional[bool] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/series/{series_ticker}"""
+    """Get Series.
+    
+    GET /trade-api/v2/series/{series_ticker}
+    
+    Endpoint for getting data about a specific series by its ticker.  A series represents a
+template for recurring events that follow the same format and rules (e.g., "Monthly Jobs
+Report", "Weekly Initial Jobless Claims", "Daily Weather in NYC"). Series define the
+structure, settlement sources, and metadata that will be applied to each recurring event
+instance within that series.
+    """
     params = strip_none({"include_volume": include_volume})
     return await client.get(f"{SERIES_URL}/{series_ticker}", params=params)
 
@@ -32,7 +41,15 @@ async def get_series_list(
     cursor: Optional[str] = None,
     min_updated_ts: Optional[int] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/series"""
+    """Get Series List.
+    
+    GET /trade-api/v2/series
+    
+    Endpoint for getting data about multiple series with specified filters.  A series
+represents a template for recurring events that follow the same format and rules (e.g.,
+"Monthly Jobs Report", "Weekly Initial Jobless Claims", "Daily Weather in NYC"). This
+endpoint allows you to browse and discover available series templates by category.
+    """
     params = strip_none({
         "category": category,
         "tags": tags,
@@ -51,7 +68,10 @@ async def get_fee_changes(
     series_ticker: Optional[str] = None,
     show_historical: Optional[bool] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/series/fee_changes"""
+    """Get Series Fee Changes.
+    
+    GET /trade-api/v2/series/fee_changes
+    """
     params = strip_none({
         "series_ticker": series_ticker,
         "show_historical": show_historical,

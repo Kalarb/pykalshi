@@ -11,7 +11,13 @@ if TYPE_CHECKING:
 
 
 async def get_balance(client: KalshiHttpClient) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/balance"""
+    """Get Balance.
+    
+    GET /trade-api/v2/portfolio/balance
+    
+    Endpoint for getting the balance and portfolio value of a member. Both values are
+returned in cents.
+    """
     return await client.get(f"{PORTFOLIO_URL}/balance")
 
 
@@ -24,7 +30,13 @@ async def get_positions(
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
 ) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/positions"""
+    """Get Positions.
+    
+    GET /trade-api/v2/portfolio/positions
+    
+    Restricts the positions to those with any of following fields with non-zero values, as a
+comma separated list. The following values are accepted: position, total_traded
+    """
     params = strip_none({
         "ticker": ticker,
         "event_ticker": event_ticker,
@@ -36,10 +48,23 @@ async def get_positions(
 
 
 async def get_settlements(client: KalshiHttpClient) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/settlements"""
+    """Get Settlements.
+    
+    GET /trade-api/v2/portfolio/settlements
+    
+    Endpoint for getting the member's settlements historical track.
+    """
     return await client.get(f"{PORTFOLIO_URL}/settlements")
 
 
 async def get_fills(client: KalshiHttpClient) -> dict[str, Any]:
-    """GET /trade-api/v2/portfolio/fills"""
+    """Get Fills.
+    
+    GET /trade-api/v2/portfolio/fills
+    
+    Endpoint for getting all fills for the member. A fill is when a trade you have is
+matched. Fills that occurred before the historical cutoff are only available via `GET
+/historical/fills`. See [Historical
+Data](https://kalshi.com/docs/getting_started/historical_data) for details.
+    """
     return await client.get(f"{PORTFOLIO_URL}/fills")

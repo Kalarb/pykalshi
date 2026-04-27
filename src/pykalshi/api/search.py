@@ -11,10 +11,20 @@ if TYPE_CHECKING:
 
 
 async def get_tags_by_categories(client: KalshiHttpClient) -> dict[str, Any]:
-    """GET /trade-api/v2/search/tags_by_categories"""
+    """Get Tags for Series Categories.
+    
+    GET /trade-api/v2/search/tags_by_categories
+    
+    Retrieve tags organized by series categories.
+    """
     return await client.get(f"{SEARCH_URL}/tags_by_categories")
 
 
 async def get_filters_by_sport(client: KalshiHttpClient) -> dict[str, Any]:
-    """GET /trade-api/v2/search/filters_by_sport"""
+    """Get Filters for Sports.
+    
+    GET /trade-api/v2/search/filters_by_sport
+    
+    Retrieve available filters organized by sport.
+    """
     return await client.get(f"{SEARCH_URL}/filters_by_sport")
