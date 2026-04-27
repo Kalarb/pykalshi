@@ -150,7 +150,43 @@ def to_class_name(schema_name: str) -> str:
     return schema_name[0].upper() + schema_name[1:]
 
 
-def generate_ws_models(schemas: dict[str, Any]) -> str:
+SKIP_CHANNELS = {"root", "control_frames"}
+
+
+def generate_channel_enum(channels: dict[str, Any]) -> tuple[str, list[str]]:
+    """Generate a Channel str enum from AsyncAPI channels. Returns (code, member_names)."""
+    lines = [
+        "class Channel(str, Enum):",
+        '    """WebSocket subscription channels."""',
+        "",
+    ]
+
+    member_names: list[str] = []
+    for name, ch in channels.items():
+        if name in SKIP_CHANNELS:
+            continue
+
+        member_name = name.upper()
+        description = ch.get("description", "").strip()
+        # Take first paragraph only for brevity
+        if description:
+            first_para = description.split("\n\n")[0].strip()
+            # Collapse to single line
+            first_para = " ".join(first_para.splitlines()).strip()
+        else:
+            first_para = ""
+
+        lines.append(f'    {member_name} = "{name}"')
+        if first_para:
+            lines.append(f'    """{first_para}"""')
+        lines.append("")
+
+        member_names.append(member_name)
+
+    return "\n".join(lines), member_names
+
+
+def generate_ws_models(schemas: dict[str, Any], channels: dict[str, Any]) -> str:
     """Generate the ws.py file content."""
     lines = [
         '"""WebSocket message models generated from the Kalshi AsyncAPI spec."""',
@@ -159,12 +195,19 @@ def generate_ws_models(schemas: dict[str, Any]) -> str:
         "",
         "from __future__ import annotations",
         "",
+        "from enum import Enum",
         "from typing import Any",
         "",
         "from pydantic import BaseModel, ConfigDict, Field",
         "",
         "",
     ]
+
+    # Generate Channel enum first
+    channel_enum, _ = generate_channel_enum(channels)
+    lines.append(channel_enum)
+    lines.append("")
+    lines.append("")
 
     # Separate payload schemas (objects) from command/response schemas
     # Generate msg inner models first, then envelope models
@@ -319,14 +362,15 @@ def update_init(ws_class_names: list[str]) -> None:
 def main() -> None:
     spec = fetch_spec()
     schemas = spec.get("components", {}).get("schemas", {})
+    channels = spec.get("channels", {})
 
-    ws_content = generate_ws_models(schemas)
+    ws_content = generate_ws_models(schemas, channels)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUTPUT_DIR / "ws.py").write_text(ws_content)
 
     # Collect class names for __init__.py
-    class_names = []
+    class_names = ["Channel"]
     for name in schemas:
         if name in TYPE_ALIASES:
             continue
@@ -339,7 +383,7 @@ def main() -> None:
         if msg_prop.get("type") == "object" and msg_prop.get("properties"):
             class_names.append(class_name.replace("Payload", "Msg"))
 
-    print(f"  Wrote ws.py ({len(class_names)} classes)")
+    print(f"  Wrote ws.py ({len(class_names)} classes, including Channel enum)")
 
     update_init(class_names)
     print("  Updated __init__.py")

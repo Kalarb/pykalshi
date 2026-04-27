@@ -4,9 +4,48 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class Channel(str, Enum):
+    """WebSocket subscription channels."""
+
+    ORDERBOOK_DELTA = "orderbook_delta"
+    """Real-time orderbook price level changes. Provides incremental updates to maintain a live orderbook."""
+
+    TICKER = "ticker"
+    """Market price, volume, and open interest updates."""
+
+    TRADE = "trade"
+    """Public trade notifications when trades occur."""
+
+    FILL = "fill"
+    """Your order fill notifications. Requires authentication."""
+
+    MARKET_POSITIONS = "market_positions"
+    """Real-time updates of your positions in markets. Requires authentication."""
+
+    MARKET_LIFECYCLE_V2 = "market_lifecycle_v2"
+    """Market state changes and event creation notifications."""
+
+    MULTIVARIATE_MARKET_LIFECYCLE = "multivariate_market_lifecycle"
+    """Multivariate event (MVE) market state changes and event creation notifications."""
+
+    MULTIVARIATE = "multivariate"
+    """Multivariate collection lookup notifications."""
+
+    COMMUNICATIONS = "communications"
+    """Real-time Request for Quote (RFQ) and quote notifications. Requires authentication."""
+
+    ORDER_GROUP_UPDATES = "order_group_updates"
+    """Real-time order group lifecycle and limit updates. Requires authentication."""
+
+    USER_ORDERS = "user_orders"
+    """Real-time order created and updated notifications. Requires authentication."""
+
 
 
 class ErrorResponseMsg(BaseModel):

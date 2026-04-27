@@ -13,6 +13,7 @@ import websockets
 from .auth import KalshiCredentials
 from .config import ClientConfig
 from .exceptions import KalshiSequenceGapError
+from .models.ws import Channel
 from ._observability import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -226,7 +227,7 @@ class KalshiWebSocketClient:
             task = asyncio.create_task(self.on_message_callback(message))
             task.add_done_callback(_log_callback_exception)
 
-    async def add_markets(self, market_tickers: list[str], channels: list[str]) -> None:
+    async def add_markets(self, market_tickers: list[str], channels: list[Channel | str]) -> None:
         """Batch-subscribe multiple markets across channels."""
         for channel_name in channels:
             if channel_name not in self.channels:
@@ -241,7 +242,7 @@ class KalshiWebSocketClient:
             else:
                 await self._send_subscribe(channel_name, list(chan_state.markets))
 
-    async def add_market(self, market_ticker: str, channels: list[str]) -> None:
+    async def add_market(self, market_ticker: str, channels: list[Channel | str]) -> None:
         """Add a single market to subscription list."""
         for channel_name in channels:
             if channel_name not in self.channels:
@@ -263,7 +264,7 @@ class KalshiWebSocketClient:
                     chan_state.sid, [market_ticker], "add_markets"
                 )
 
-    async def remove_market(self, market_ticker: str, channels: list[str]) -> None:
+    async def remove_market(self, market_ticker: str, channels: list[Channel | str]) -> None:
         """Remove a market from subscription list."""
         for channel_name in channels:
             if channel_name not in self.channels:
