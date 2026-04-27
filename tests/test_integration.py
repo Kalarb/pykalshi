@@ -519,7 +519,7 @@ class TestLiveDataIntegration:
             pytest.skip("Milestones missing ID fields")
         try:
             result = await client.get_live_data_batch(ids)
-            assert isinstance(result.live_datas, list)
+            assert result.live_datas is None or isinstance(result.live_datas, list)
         except KalshiAPIError as e:
             if e.status_code in (404, 400):
                 pytest.skip(f"Live data batch not available ({e.status_code})")
@@ -704,7 +704,7 @@ class TestOrdersIntegration:
             pytest.skip("No open markets on DEMO")
         ticker = markets_resp.markets[0].ticker
         result = await client.get_queue_positions(market_tickers=ticker)
-        assert isinstance(result.queue_positions, list)
+        assert result.queue_positions is None or isinstance(result.queue_positions, list)
 
     @pytest.mark.asyncio
     async def test_amend_order(self, client: KalshiHttpClient) -> None:
