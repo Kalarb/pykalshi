@@ -80,6 +80,38 @@ await ws.add_market("KXBTC-100K", ["orderbook_delta", "ticker", "trade"])
 await ws.listener_loop()
 ```
 
+## Typed Models
+
+All API response and request types are available as Pydantic v2 models, auto-generated from the Kalshi OpenAPI spec. This gives you IDE autocomplete, field descriptions, and runtime validation.
+
+```python
+from pykalshi.models import CreateOrderResponse, GetMarketsResponse, Order
+
+# Parse raw API response into a typed model
+raw = await client.create_order(ticker="KXBTC-100K", side="yes", action="buy", count=1, yes_price=50)
+resp = CreateOrderResponse(**raw)
+print(resp.order.order_id)
+print(resp.order.status)          # IDE autocomplete works here
+print(resp.order.yes_price_dollars)
+
+# List endpoints return typed collections
+raw_markets = await client.get_markets(status="open", limit=5)
+markets = GetMarketsResponse(**raw_markets)
+for market in markets.markets:
+    print(f"{market.ticker}: {market.yes_bid_dollars}/{market.yes_ask_dollars}")
+```
+
+**144 types** generated across 4 files:
+
+| File | Contents | Count |
+|------|----------|:-----:|
+| `models/enums.py` | `OrderStatus`, `ExchangeInstance`, `SelfTradePreventionType` | 3 |
+| `models/core.py` | `Order`, `Market`, `Fill`, `Position`, `ExchangeStatus`, ... | 49 |
+| `models/requests.py` | `CreateOrderRequest`, `AmendOrderRequest`, ... | 16 |
+| `models/responses.py` | `CreateOrderResponse`, `GetOrdersResponse`, `GetMarketsResponse`, ... | 76 |
+
+All models use `extra="ignore"` (forward-compatible with spec additions) and include field descriptions from the spec for IDE tooltips.
+
 ## Configuration
 
 ### HTTP
@@ -90,7 +122,7 @@ await ws.listener_loop()
 | `environment` | `DEMO` | `Environment.DEMO` or `Environment.PROD` |
 | `read_rate` | 20.0 | Read requests per second |
 | `write_rate` | 10.0 | Write requests per second |
-| `max_retries` | 4 | Retry count for 429/5xx |
+| `max_retries` | 4 | Retry count for 429s and network errors |
 | `base_retry_delay` | 0.1s | Initial backoff delay |
 | `connect_timeout` | 5.0s | Connection timeout |
 | `read_timeout` | 30.0s | Read timeout |
@@ -136,12 +168,12 @@ Every implemented endpoint has a unit test (mock transport). Integration tests h
 | `get_order` | Y | Y | Y | via create+cancel lifecycle |
 | `create_order` | Y | Y | Y | places at 1c, won't fill |
 | `cancel_order` | Y | Y | Y | cleans up created order |
-| `amend_order` | Y | Y | Y | create → amend price → cancel |
-| `decrease_order` | Y | Y | Y | create count=2 → decrease to 1 → cancel |
-| `batch_create_orders` | Y | Y | Y | batch create 3 → batch cancel all |
+| `amend_order` | Y | Y | Y | create -> amend price -> cancel |
+| `decrease_order` | Y | Y | Y | create count=2 -> decrease to 1 -> cancel |
+| `batch_create_orders` | Y | Y | Y | batch create 3 -> batch cancel all |
 | `batch_cancel_orders` | Y | Y | Y | same test as batch_create |
 | `get_queue_positions` | Y | Y | Y | |
-| `get_order_queue_position` | Y | Y | Y | create → wait → get position → cancel |
+| `get_order_queue_position` | Y | Y | Y | create -> wait -> get position -> cancel |
 
 #### Order Groups
 
@@ -319,9 +351,31 @@ pykalshi/
     ws_client.py       KalshiWebSocketClient (subscriptions, reconnect)
 
   Shared:
-    models/            Pydantic v2 models (enums, common types)
+    models/            Pydantic v2 models — auto-generated from OpenAPI spec
+      enums.py           Enum types (OrderStatus, ExchangeInstance, ...)
+      core.py            Domain objects (Order, Market, Fill, Position, ...)
+      requests.py        Request body schemas (CreateOrderRequest, ...)
+      responses.py       Response wrappers (CreateOrderResponse, GetOrdersResponse, ...)
     testing/           Mock transport factory + pytest fixtures
+
+tools/
+  generate_models.py   Fetch OpenAPI spec and generate Pydantic models
+  sync_docstrings.py   Sync API function docstrings from OpenAPI spec
 ```
+
+## Tooling
+
+The `tools/` directory contains scripts that sync parts of the codebase with the Kalshi OpenAPI spec:
+
+```bash
+# Regenerate Pydantic models (enums, core objects, requests, responses)
+uv run python tools/generate_models.py
+
+# Sync API function docstrings (summary + description from spec)
+uv run python tools/sync_docstrings.py
+```
+
+Models are auto-generated because they tolerate spec inaccuracies (`extra="ignore"`). API function signatures are hand-written and manually verified against real API behavior.
 
 ## Testing
 
