@@ -86,10 +86,9 @@ async def _get_btc15m_ticker(http: KalshiHttpClient) -> str:
         status="open", series_ticker="KXBTC15M",
         with_nested_markets=True, limit=1,
     )
-    events = result.get("events", [])
-    if not events or not events[0].get("markets"):
+    if not result.events or not result.events[0].markets:
         pytest.skip("No open KXBTC15M events on PROD")
-    return events[0]["markets"][0]["ticker"]
+    return result.events[0].markets[0].ticker
 
 
 async def _get_btcd_ticker(http: KalshiHttpClient) -> str:
@@ -97,10 +96,9 @@ async def _get_btcd_ticker(http: KalshiHttpClient) -> str:
         status="open", series_ticker="KXBTCD",
         with_nested_markets=True, limit=1,
     )
-    events = result.get("events", [])
-    if not events or not events[0].get("markets"):
+    if not result.events or not result.events[0].markets:
         pytest.skip("No open KXBTCD events on PROD")
-    return events[0]["markets"][0]["ticker"]
+    return result.events[0].markets[0].ticker
 
 
 # =============================================================================
