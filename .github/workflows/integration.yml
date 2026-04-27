@@ -11,7 +11,7 @@ on:
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v5
 
@@ -26,14 +26,20 @@ jobs:
         run: |
           echo "$KALSHI_DEMO_PRIVATE_KEY_PEM" > /tmp/demo-key.pem
           chmod 600 /tmp/demo-key.pem
+          echo "$KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM" > /tmp/prod-ro-key.pem
+          chmod 600 /tmp/prod-ro-key.pem
           cat > .env << EOF
           KALSHI_ENVIRONMENT=DEMO
           KALSHI_DEMO_API_KEY_ID=$KALSHI_DEMO_API_KEY_ID
           KALSHI_DEMO_PRIVATE_KEY_FILE=/tmp/demo-key.pem
+          KALSHI_PROD_READ_ONLY_API_KEY_ID=$KALSHI_PROD_READ_ONLY_API_KEY_ID
+          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_FILE=/tmp/prod-ro-key.pem
           EOF
         env:
           KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
           KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+          KALSHI_PROD_READ_ONLY_API_KEY_ID: ${{ secrets.KALSHI_PROD_READ_ONLY_API_KEY_ID }}
+          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM }}
 
       - name: Check exchange status
         id: gate
@@ -69,11 +75,17 @@ jobs:
         env:
           KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
 
-      - name: Run integration tests
+      - name: Run REST integration tests
         if: steps.gate.outputs.active == 'true'
         run: uv run pytest tests/test_integration.py tests/test_spec_validation.py -v
         env:
           KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+
+      - name: Run WebSocket integration tests
+        if: steps.gate.outputs.active == 'true'
+        run: uv run pytest tests/test_ws_integration.py -v
+        env:
+          KALSHI_PROD_READ_ONLY_API_KEY_ID: ${{ secrets.KALSHI_PROD_READ_ONLY_API_KEY_ID }}
 
       - name: Skipped (maintenance)
         if: steps.gate.outputs.active != 'true'

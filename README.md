@@ -239,7 +239,7 @@ Every endpoint has a unit test (mock transport). Integration tests hit the real 
 | `get_structured_targets` | Y | Y | |
 | `get_incentive_programs` | Y | Y | |
 
-### WebSocket
+### WebSocket — Unit Tests
 
 | Check | Status |
 |---|:---:|
@@ -251,6 +251,24 @@ Every endpoint has a unit test (mock transport). Integration tests hit the real 
 | Callback invocation | Y |
 | Unknown message type passthrough | Y |
 | Validated against live AsyncAPI spec | Y |
+
+### WebSocket — Integration Tests (PROD)
+
+| Test | Channel/Operation | Verified |
+|---|---|---|
+| `test_ws_connect_and_receive_orderbook` | `orderbook_delta` subscribe + snapshot | Data received |
+| `test_ws_receive_ticker` | `ticker` subscribe + message | Data received |
+| `test_ws_receive_trade` | `trade` subscribe + message | Data received |
+| `test_ws_subscribe_fill` | `fill` subscribe | SID received |
+| `test_ws_subscribe_market_positions` | `market_positions` subscribe | SID received |
+| `test_ws_subscribe_market_lifecycle` | `market_lifecycle_v2` subscribe + wait | Data received (may be flaky) |
+| `test_ws_subscribe_user_orders` | `user_orders` subscribe | SID received |
+| `test_ws_subscribe_communications` | `communications` subscribe | SID received |
+| `test_ws_add_market` | `add_market` (KXBTC15M + KXBTCD) | Snapshot for added market |
+| `test_ws_remove_market` | `remove_market` | No data for removed market |
+| `test_ws_unsubscribe_all` | `unsubscribe_all` | No data after unsub |
+| `test_ws_multi_channel_subscribe` | Multi-channel (orderbook + ticker) | Both types received |
+| `test_ws_request_snapshot` | `request_snapshot` (get_snapshot) | Second snapshot received |
 
 ## Architecture
 

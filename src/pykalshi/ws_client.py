@@ -284,6 +284,15 @@ class KalshiWebSocketClient:
                 await self.remove_market(ticker, [channel_name])
         logger.info("Unsubscribed from all channels.")
 
+    async def request_snapshot(
+        self, market_tickers: list[str], channel: str = "orderbook_delta"
+    ) -> None:
+        """Request orderbook snapshot without modifying subscription."""
+        chan_state = self.channels.get(channel)
+        if chan_state is None or chan_state.sid is None:
+            raise ValueError(f"Not subscribed to {channel}")
+        await self._send_update_sub(chan_state.sid, market_tickers, "get_snapshot")
+
     # --- Internal helpers ---
 
     async def _handle_connection_loss(self) -> None:
