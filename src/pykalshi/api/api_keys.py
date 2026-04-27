@@ -16,10 +16,12 @@ async def get_api_keys(client: KalshiHttpClient) -> dict[str, Any]:
 
 
 async def create_api_key(
-    client: KalshiHttpClient, *, public_key: str
+    client: KalshiHttpClient, *, public_key: str, name: str
 ) -> dict[str, Any]:
     """POST /trade-api/v2/api_keys"""
-    return await client.post(API_KEYS_URL, body={"public_key": public_key})
+    return await client.post(
+        API_KEYS_URL, body={"public_key": public_key, "name": name}
+    )
 
 
 async def generate_api_key(

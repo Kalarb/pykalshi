@@ -154,6 +154,8 @@ class KalshiHttpClient:
                         method=method,
                         path=path,
                     )
+                if not response.content:
+                    return {}
                 return response.json()
 
             except httpx.RequestError as e:

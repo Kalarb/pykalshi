@@ -621,7 +621,7 @@ class TestApiKeys:
     async def test_create_api_key(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("POST", "/trade-api/v2/api_keys"): {"api_key": "new-key"}}
         async with _client(creds, cfg, routes) as c:
-            result = await c.create_api_key(public_key="ssh-rsa AAAA...")
+            result = await c.create_api_key(public_key="ssh-rsa AAAA...", name="test")
             assert result["api_key"] == "new-key"
 
     @pytest.mark.asyncio

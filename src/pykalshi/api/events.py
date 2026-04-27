@@ -105,7 +105,7 @@ async def get_forecast_percentile_history(
 ) -> dict[str, Any]:
     """GET /trade-api/v2/series/{s}/events/{t}/forecast_percentile_history"""
     params: dict[str, Any] = {
-        "percentiles": ",".join(str(p) for p in percentiles),
+        "percentiles": [str(p) for p in percentiles],
         "start_ts": start_ts,
         "end_ts": end_ts,
         "period_interval": period_interval,

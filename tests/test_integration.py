@@ -189,11 +189,11 @@ class TestMarketsIntegration:
         try:
             result = await client.get_market_candlesticks(
                 series_ticker, ticker,
-                start_ts=now - 86400, end_ts=now, period_interval=3600,
+                start_ts=now - 3600, end_ts=now, period_interval=1,
             )
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Market candlesticks not available ({e.status_code})")
             raise
 
@@ -251,14 +251,15 @@ class TestEventsIntegration:
         try:
             result = await client.get_event_candlesticks(
                 series_ticker, event_ticker,
-                start_ts=now - 86400, end_ts=now, period_interval=3600,
+                start_ts=now - 3600, end_ts=now, period_interval=1,
             )
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Event candlesticks not available ({e.status_code})")
             raise
 
+    @pytest.mark.skip(reason="forecast_percentile_history not supported on DEMO (400 for all events)")
     @pytest.mark.asyncio
     async def test_get_forecast_percentile_history(self, client: KalshiHttpClient) -> None:
         """Fetch forecast percentile history for an open event."""
@@ -273,17 +274,12 @@ class TestEventsIntegration:
             pytest.skip("Event missing series_ticker or event_ticker")
 
         now = int(time.time())
-        try:
-            result = await client.get_forecast_percentile_history(
-                series_ticker, event_ticker,
-                percentiles=[25, 50, 75],
-                start_ts=now - 86400, end_ts=now, period_interval=3600,
-            )
-            assert isinstance(result, dict)
-        except KalshiAPIError as e:
-            if e.status_code in (400, 404):
-                pytest.skip(f"Forecast percentile history not available ({e.status_code})")
-            raise
+        result = await client.get_forecast_percentile_history(
+            series_ticker, event_ticker,
+            percentiles=[25, 50, 75],
+            start_ts=now - 3600, end_ts=now, period_interval=1,
+        )
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -411,7 +407,7 @@ class TestHistoricalIntegration:
             result = await client.get_historical_market(ticker)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Historical market not available ({e.status_code})")
             raise
 
@@ -429,11 +425,11 @@ class TestHistoricalIntegration:
         now = int(time.time())
         try:
             result = await client.get_historical_market_candlesticks(
-                ticker, start_ts=0, end_ts=now, period_interval=86400,
+                ticker, start_ts=now - 86400, end_ts=now, period_interval=60,
             )
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Historical candlesticks not available ({e.status_code})")
             raise
 
@@ -464,7 +460,7 @@ class TestMilestonesIntegration:
             result = await client.get_milestone(milestone_id)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"get_milestone not available ({e.status_code})")
             raise
 
@@ -498,7 +494,7 @@ class TestStructuredTargetsIntegration:
             result = await client.get_structured_target(target_id)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"get_structured_target not available ({e.status_code})")
             raise
 
@@ -537,7 +533,7 @@ class TestLiveDataIntegration:
             result = await client.get_live_data(milestone_id)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Live data not available for milestone ({e.status_code})")
             raise
 
@@ -559,7 +555,7 @@ class TestLiveDataIntegration:
             result = await client.get_live_data_batch(ids)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Live data batch not available ({e.status_code})")
             raise
 
@@ -577,7 +573,7 @@ class TestLiveDataIntegration:
             result = await client.get_game_stats(milestone_id)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 404):
+            if e.status_code == 404:
                 pytest.skip(f"Game stats not available for milestone ({e.status_code})")
             raise
 
@@ -605,7 +601,7 @@ class TestCommunicationsIntegration:
             result = await client.get_quotes(limit=5)
             assert isinstance(result, dict)
         except KalshiAPIError as e:
-            if e.status_code in (400, 403):
+            if e.status_code == 403:
                 pytest.skip(f"quotes endpoint not available on DEMO ({e.status_code})")
             raise
 
@@ -632,9 +628,11 @@ class TestApiKeysIntegration:
         ).decode("utf-8")
 
         try:
-            created = await client.create_api_key(public_key=pub_pem)
+            created = await client.create_api_key(
+                public_key=pub_pem, name="pykalshi-test",
+            )
         except KalshiAPIError as e:
-            if e.status_code in (400, 403):
+            if e.status_code == 403:
                 pytest.skip(f"API key creation not available on DEMO ({e.status_code})")
             raise
 
@@ -657,7 +655,7 @@ class TestApiKeysIntegration:
         try:
             generated = await client.generate_api_key(name="pykalshi-test-gen")
         except KalshiAPIError as e:
-            if e.status_code in (400, 403):
+            if e.status_code == 403:
                 pytest.skip(f"generate_api_key not available on DEMO ({e.status_code})")
             raise
 
@@ -699,8 +697,12 @@ class TestOrderGroupsIntegration:
             )
             assert isinstance(got, dict)
 
-            # Update limit
-            await client.update_order_group_limit(group_id, limit=50)
+            # Update limit (may 403 on DEMO — CloudFront blocks this route)
+            try:
+                await client.update_order_group_limit(group_id, limit=50)
+            except KalshiAPIError as e:
+                if e.status_code != 403:
+                    raise
 
             # Reset it
             await client.reset_order_group(group_id)
