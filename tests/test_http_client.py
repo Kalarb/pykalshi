@@ -421,6 +421,19 @@ class TestSearch:
             assert "Crypto" in result.tags_by_categories
 
     @pytest.mark.asyncio
+    async def test_get_tags_by_categories_coalesces_null_tag_lists(
+        self, creds: KalshiCredentials, cfg: ClientConfig
+    ) -> None:
+        """Kalshi returns null for some categories (e.g. Social); coalesced to []."""
+        routes = {("GET", "/trade-api/v2/search/tags_by_categories"): {
+            "tags_by_categories": {"Crypto": ["BTC"], "Social": None}
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_tags_by_categories()
+            assert result.tags_by_categories["Crypto"] == ["BTC"]
+            assert result.tags_by_categories["Social"] == []
+
+    @pytest.mark.asyncio
     async def test_get_filters_by_sport(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/search/filters_by_sport"): {
             "filters_by_sports": {}, "sport_ordering": ["NFL"]

@@ -479,6 +479,11 @@ class KalshiHttpClient:
 
     async def get_tags_by_categories(self) -> GetTagsForSeriesCategoriesResponse:
         data = await search.get_tags_by_categories(self)
+        # Kalshi returns null for some categories' tag lists (e.g. Social);
+        # coalesce to [] so the model stays dict[str, list[str]].
+        raw = data.get("tags_by_categories")
+        if isinstance(raw, dict):
+            data = {**data, "tags_by_categories": {k: v or [] for k, v in raw.items()}}
         return GetTagsForSeriesCategoriesResponse.model_validate(data)
 
     async def get_filters_by_sport(self) -> GetFiltersBySportsResponse:

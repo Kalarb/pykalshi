@@ -40,6 +40,8 @@ NULLABLE_OVERRIDES: set[tuple[str, str]] = {
     ("Series", "contract_url"),
     ("Series", "contract_terms_url"),
     ("Series", "additional_prohibitions"),
+    ("GetOrderQueuePositionsResponse", "queue_positions"),
+    ("GetLiveDatasResponse", "live_datas"),
 }
 
 
