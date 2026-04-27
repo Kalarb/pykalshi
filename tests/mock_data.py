@@ -89,13 +89,8 @@ MOCK_SERIES = {
     "frequency": "daily",
     "title": "BTC Price",
     "category": "Crypto",
-    "tags": ["crypto", "btc"],
-    "settlement_sources": [],
-    "contract_url": "https://kalshi.com/contract",
-    "contract_terms_url": "https://kalshi.com/terms",
     "fee_type": "quadratic",
     "fee_multiplier": 1.0,
-    "additional_prohibitions": [],
 }
 
 MOCK_EVENT = {

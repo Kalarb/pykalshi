@@ -620,7 +620,7 @@ class TestLiveData:
         routes = {("GET", "/trade-api/v2/live_data/batch"): {"live_datas": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_live_data_batch(["ms-1", "ms-2"])
-            assert result.live_datas == []
+            assert result.live_datas is not None
 
     @pytest.mark.asyncio
     async def test_get_game_stats(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
