@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .core import Announcement, ApiKey, EndpointTokenCost, EventData, EventPosition, Fill, ForecastPercentilesPoint, IncentiveProgram, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade
 
@@ -14,70 +14,70 @@ from .core import Announcement, ApiKey, EndpointTokenCost, EventData, EventPosit
 class GetMarketCandlesticksHistoricalResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    ticker: str
-    candlesticks: list[MarketCandlestickHistorical]
+    ticker: str = Field(..., description="Unique identifier for the market.")
+    candlesticks: list[MarketCandlestickHistorical] = Field(..., description="Array of candlestick data points for the specified time range.")
 
 
 class ErrorResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    code: str | None = None
-    message: str | None = None
-    details: str | None = None
-    service: str | None = None
+    code: str | None = Field(None, description="Error code")
+    message: str | None = Field(None, description="Human-readable error message")
+    details: str | None = Field(None, description="Additional details about the error, if available")
+    service: str | None = Field(None, description="The name of the service that generated the error")
 
 
 class GetApiKeysResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    api_keys: list[ApiKey]
+    api_keys: list[ApiKey] = Field(..., description="List of all API keys associated with the user")
 
 
 class CreateApiKeyResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    api_key_id: str
+    api_key_id: str = Field(..., description="Unique identifier for the newly created API key")
 
 
 class GenerateApiKeyResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    api_key_id: str
-    private_key: str
+    api_key_id: str = Field(..., description="Unique identifier for the newly generated API key")
+    private_key: str = Field(..., description="RSA private key in PEM format. This must be stored securely and cannot be retrieved again after this response")
 
 
 class GetTagsForSeriesCategoriesResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    tags_by_categories: dict[str, list[str]]
+    tags_by_categories: dict[str, list[str]] = Field(..., description="Mapping of series categories to their associated tags")
 
 
 class GetFiltersBySportsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    filters_by_sports: dict[str, SportFilterDetails]
-    sport_ordering: list[str]
+    filters_by_sports: dict[str, SportFilterDetails] = Field(..., description="Mapping of sports to their filter details")
+    sport_ordering: list[str] = Field(..., description="Ordered list of sports for display")
 
 
 class GetAccountApiLimitsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    usage_tier: str
-    read_limit: int
-    write_limit: int
+    usage_tier: str = Field(..., description="User's API usage tier")
+    read_limit: int = Field(..., description="Maximum read requests per second")
+    write_limit: int = Field(..., description="Maximum write requests per second")
 
 
 class GetAccountEndpointCostsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    default_cost: int
-    endpoint_costs: list[EndpointTokenCost]
+    default_cost: int = Field(..., description="Default token cost applied to endpoints that are not listed in `endpoint_costs`. This is currently 10.")
+    endpoint_costs: list[EndpointTokenCost] = Field(..., description="API v2 endpoints whose configured token cost differs from `default_cost`. Endpoints that use the default cost are omitted.")
 
 
 class GetExchangeAnnouncementsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    announcements: list[Announcement]
+    announcements: list[Announcement] = Field(..., description="A list of exchange-wide announcements.")
 
 
 class GetExchangeScheduleResponse(BaseModel):
@@ -89,43 +89,43 @@ class GetExchangeScheduleResponse(BaseModel):
 class GetHistoricalCutoffResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    market_settled_ts: str
-    trades_created_ts: str
-    orders_updated_ts: str
+    market_settled_ts: str = Field(..., description="Cutoff based on **market settlement time**. Markets and their candlesticks that settled before this timestamp must be accessed via `GET /historical/markets` and `GET /historical/markets/{ticker}/candlesticks`.")
+    trades_created_ts: str = Field(..., description="Cutoff based on **trade fill time**. Fills that occurred before this timestamp must be accessed via `GET /historical/fills`.")
+    orders_updated_ts: str = Field(..., description="Cutoff based on **order cancellation or execution time**. Orders canceled or fully executed before this timestamp must be accessed via `GET /historical/orders`. Resting (active) orders are always available in `GET /portfolio/orders`.")
 
 
 class GetUserDataTimestampResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    as_of_time: str
+    as_of_time: str = Field(..., description="Timestamp when user data was last updated.")
 
 
 class GetMarketCandlesticksResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    ticker: str
-    candlesticks: list[MarketCandlestick]
+    ticker: str = Field(..., description="Unique identifier for the market.")
+    candlesticks: list[MarketCandlestick] = Field(..., description="Array of candlestick data points for the specified time range.")
 
 
 class GetEventCandlesticksResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    market_tickers: list[str]
-    market_candlesticks: list[list[MarketCandlestick]]
-    adjusted_end_ts: int
+    market_tickers: list[str] = Field(..., description="Array of market tickers in the event.")
+    market_candlesticks: list[list[MarketCandlestick]] = Field(..., description="Array of market candlestick arrays, one for each market in the event.")
+    adjusted_end_ts: int = Field(..., description="Adjusted end timestamp if the requested candlesticks would be larger than maxAggregateCandidates.")
 
 
 class MarketCandlesticksResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    market_ticker: str
-    candlesticks: list[MarketCandlestick]
+    market_ticker: str = Field(..., description="Market ticker string (e.g., 'INXD-24JAN01').")
+    candlesticks: list[MarketCandlestick] = Field(..., description="Array of candlestick data points for the market. Includes an initial data point at the start timestamp when available.")
 
 
 class BatchGetMarketCandlesticksResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    markets: list[MarketCandlesticksResponse]
+    markets: list[MarketCandlesticksResponse] = Field(..., description="Array of market candlestick data, one entry per requested market.")
 
 
 class GetLiveDataResponse(BaseModel):
@@ -149,15 +149,15 @@ class GetGameStatsResponse(BaseModel):
 class GetBalanceResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    balance: int
-    portfolio_value: int
-    updated_ts: int
+    balance: int = Field(..., description="Member's available balance in cents. This represents the amount available for trading.")
+    portfolio_value: int = Field(..., description="Member's portfolio value in cents. This is the current value of all positions held.")
+    updated_ts: int = Field(..., description="Unix timestamp of the last update to the balance.")
 
 
 class CreateSubaccountResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    subaccount_number: int
+    subaccount_number: int = Field(..., description="The sequential number assigned to this subaccount (1-32).")
 
 
 class ApplySubaccountTransferResponse(BaseModel):
@@ -178,7 +178,7 @@ class GetSubaccountTransfersResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     transfers: list[Any]
-    cursor: str | None = None
+    cursor: str | None = Field(None, description="Cursor for the next page of results.")
 
 
 class GetSubaccountNettingResponse(BaseModel):
@@ -197,20 +197,20 @@ class GetSettlementsResponse(BaseModel):
 class GetPortfolioRestingOrderTotalValueResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    total_resting_order_value: int
+    total_resting_order_value: int = Field(..., description="Total value of resting orders in cents")
 
 
 class GetMilestoneResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    milestone: Milestone
+    milestone: Milestone = Field(..., description="The milestone data.")
 
 
 class GetMilestonesResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    milestones: list[Milestone]
-    cursor: str | None = None
+    milestones: list[Milestone] = Field(..., description="List of milestones.")
+    cursor: str | None = Field(None, description="Cursor for pagination.")
 
 
 class GetOrdersResponse(BaseModel):
@@ -223,28 +223,28 @@ class GetOrdersResponse(BaseModel):
 class GetOrderQueuePositionResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    queue_position_fp: str
+    queue_position_fp: str = Field(..., description="The number of preceding shares before the order in the queue.")
 
 
 class GetOrderQueuePositionsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    queue_positions: list[OrderQueuePosition]
+    queue_positions: list[OrderQueuePosition] = Field(..., description="Queue positions for all matching orders")
 
 
 class GetPositionsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    cursor: str | None = None
-    market_positions: list[MarketPosition]
-    event_positions: list[EventPosition]
+    cursor: str | None = Field(None, description="The Cursor represents a pointer to the next page of records in the pagination. Use the value returned here in the cursor query parameter for this end-point to get the next page containing limit records. An empty value of this field indicates there is no next page.")
+    market_positions: list[MarketPosition] = Field(..., description="List of market positions")
+    event_positions: list[EventPosition] = Field(..., description="List of event positions")
 
 
 class GetIncentiveProgramsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     incentive_programs: list[IncentiveProgram]
-    next_cursor: str | None = None
+    next_cursor: str | None = Field(None, description="Cursor for pagination to get the next page of results")
 
 
 class GetTradesResponse(BaseModel):
@@ -265,7 +265,7 @@ class GetStructuredTargetsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     structured_targets: list[StructuredTarget] | None = None
-    cursor: str | None = None
+    cursor: str | None = Field(None, description="Pagination cursor for the next page. Empty if there are no more results.")
 
 
 class GetStructuredTargetResponse(BaseModel):
@@ -291,59 +291,59 @@ class GetOrderGroupsResponse(BaseModel):
 class GetOrderGroupResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    is_auto_cancel_enabled: bool
-    contracts_limit_fp: str | None = None
-    orders: list[str]
+    is_auto_cancel_enabled: bool = Field(..., description="Whether auto-cancel is enabled for this order group")
+    contracts_limit_fp: str | None = Field(None, description="String representation of the current maximum contracts allowed over a rolling 15-second window.")
+    orders: list[str] = Field(..., description="List of order IDs that belong to this order group")
 
 
 class CreateOrderGroupResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    order_group_id: str
+    order_group_id: str = Field(..., description="The unique identifier for the created order group")
 
 
 class GetCommunicationsIDResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    communications_id: str
+    communications_id: str = Field(..., description="A public communications ID which is used to identify the user")
 
 
 class GetRFQsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    rfqs: list[RFQ]
-    cursor: str | None = None
+    rfqs: list[RFQ] = Field(..., description="List of RFQs matching the query criteria")
+    cursor: str | None = Field(None, description="Cursor for pagination to get the next page of results")
 
 
 class GetRFQResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    rfq: RFQ
+    rfq: RFQ = Field(..., description="The details of the requested RFQ")
 
 
 class CreateRFQResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
+    id: str = Field(..., description="The ID of the newly created RFQ")
 
 
 class GetQuotesResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    quotes: list[Quote]
-    cursor: str | None = None
+    quotes: list[Quote] = Field(..., description="List of quotes matching the query criteria")
+    cursor: str | None = Field(None, description="Cursor for pagination to get the next page of results")
 
 
 class GetQuoteResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    quote: Quote
+    quote: Quote = Field(..., description="The details of the requested quote")
 
 
 class CreateQuoteResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
+    id: str = Field(..., description="The ID of the newly created quote")
 
 
 class GetOrderResponse(BaseModel):
@@ -375,9 +375,9 @@ class BatchCreateOrdersResponse(BaseModel):
 class BatchCancelOrdersIndividualResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    order_id: str
+    order_id: str = Field(..., description="The order ID to identify which order had an error during batch cancellation")
     order: Order | None = None
-    reduced_by_fp: str
+    reduced_by_fp: str = Field(..., description="String representation of the number of contracts that were successfully canceled from this order")
     error: ErrorResponse | None = None
 
 
@@ -391,14 +391,14 @@ class CancelOrderResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     order: Order
-    reduced_by_fp: str
+    reduced_by_fp: str = Field(..., description="String representation of the number of contracts that were successfully canceled from this order")
 
 
 class AmendOrderResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    old_order: Order
-    order: Order
+    old_order: Order = Field(..., description="The order before amendment")
+    order: Order = Field(..., description="The order after amendment")
 
 
 class DecreaseOrderResponse(BaseModel):
@@ -410,35 +410,35 @@ class DecreaseOrderResponse(BaseModel):
 class GetMultivariateEventCollectionResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    multivariate_contract: MultivariateEventCollection
+    multivariate_contract: MultivariateEventCollection = Field(..., description="The multivariate event collection.")
 
 
 class GetMultivariateEventCollectionsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    multivariate_contracts: list[MultivariateEventCollection]
-    cursor: str | None = None
+    multivariate_contracts: list[MultivariateEventCollection] = Field(..., description="List of multivariate event collections.")
+    cursor: str | None = Field(None, description="The Cursor represents a pointer to the next page of records in the pagination. Use the value returned here in the cursor query parameter for this end-point to get the next page containing limit records. An empty value of this field indicates there is no next page.")
 
 
 class LookupTickersForMarketInMultivariateEventCollectionResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str
-    market_ticker: str
+    event_ticker: str = Field(..., description="Event ticker for the looked up market.")
+    market_ticker: str = Field(..., description="Market ticker for the looked up market.")
 
 
 class GetMultivariateEventCollectionLookupHistoryResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    lookup_points: list[LookupPoint]
+    lookup_points: list[LookupPoint] = Field(..., description="List of recent lookup points in the collection.")
 
 
 class CreateMarketInMultivariateEventCollectionResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str
-    market_ticker: str
-    market: Market | None = None
+    event_ticker: str = Field(..., description="Event ticker for the created market.")
+    market_ticker: str = Field(..., description="Market ticker for the created market.")
+    market: Market | None = Field(None, description="Market payload of the created market.")
 
 
 class GetMarketOrderbooksResponse(BaseModel):
@@ -450,46 +450,46 @@ class GetMarketOrderbooksResponse(BaseModel):
 class GetMarketOrderbookResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    orderbook_fp: OrderbookCountFp
+    orderbook_fp: OrderbookCountFp = Field(..., description="Orderbook with fixed-point contract counts (fp) in all price levels.")
 
 
 class GetEventsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    events: list[EventData]
-    milestones: list[Milestone] | None = None
-    cursor: str
+    events: list[EventData] = Field(..., description="Array of events matching the query criteria.")
+    milestones: list[Milestone] | None = Field(None, description="Array of milestones related to the events.")
+    cursor: str = Field(..., description="Pagination cursor for the next page. Empty if there are no more results.")
 
 
 class GetMultivariateEventsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    events: list[EventData]
-    cursor: str
+    events: list[EventData] = Field(..., description="Array of multivariate events matching the query criteria.")
+    cursor: str = Field(..., description="Pagination cursor for the next page. Empty if there are no more results.")
 
 
 class GetEventResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event: EventData
-    markets: list[Market]
+    event: EventData = Field(..., description="Data for the event.")
+    markets: list[Market] = Field(..., description="Data for the markets in this event. This field is deprecated in favour of the \"markets\" field inside the event. Which will be filled with the same value if you use the query parameter \"with_nested_markets=true\".")
 
 
 class GetEventMetadataResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    image_url: str
-    featured_image_url: str | None = None
-    market_details: list[MarketMetadata]
-    settlement_sources: list[SettlementSource]
-    competition: str | None = None
-    competition_scope: str | None = None
+    image_url: str = Field(..., description="A path to an image that represents this event.")
+    featured_image_url: str | None = Field(None, description="A path to an image that represents the image of the featured market.")
+    market_details: list[MarketMetadata] = Field(..., description="Metadata for the markets in this event.")
+    settlement_sources: list[SettlementSource] = Field(..., description="A list of settlement sources for this event.")
+    competition: str | None = Field(None, description="Event competition.")
+    competition_scope: str | None = Field(None, description="Event scope, based on the competition.")
 
 
 class GetEventForecastPercentilesHistoryResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    forecast_history: list[ForecastPercentilesPoint]
+    forecast_history: list[ForecastPercentilesPoint] = Field(..., description="Array of forecast percentile data points over time.")
 
 
 class GetSeriesResponse(BaseModel):

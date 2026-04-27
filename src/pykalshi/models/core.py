@@ -14,154 +14,154 @@ from .enums import OrderStatus, SelfTradePreventionType
 class BidAskDistributionHistorical(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    open: str
-    low: str
-    high: str
-    close: str
+    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class PriceDistributionHistorical(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    open: str | None = None
-    low: str | None = None
-    high: str | None = None
-    close: str | None = None
-    mean: str | None = None
-    previous: str | None = None
+    open: str | None = Field(None, description="Price of the first trade during the candlestick period (in dollars). Null if no trades occurred.")
+    low: str | None = Field(None, description="Lowest trade price during the candlestick period (in dollars). Null if no trades occurred.")
+    high: str | None = Field(None, description="Highest trade price during the candlestick period (in dollars). Null if no trades occurred.")
+    close: str | None = Field(None, description="Price of the last trade during the candlestick period (in dollars). Null if no trades occurred.")
+    mean: str | None = Field(None, description="Volume-weighted average price during the candlestick period (in dollars). Null if no trades occurred.")
+    previous: str | None = Field(None, description="Close price from the previous candlestick period (in dollars). Null if this is the first candlestick or no prior trade exists.")
 
 
 class MarketCandlestickHistorical(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    end_period_ts: int
-    yes_bid: BidAskDistributionHistorical
-    yes_ask: BidAskDistributionHistorical
-    price: PriceDistributionHistorical
-    volume: str
-    open_interest: str
+    end_period_ts: int = Field(..., description="Unix timestamp for the inclusive end of the candlestick period.")
+    yes_bid: BidAskDistributionHistorical = Field(..., description="Open, high, low, close (OHLC) data for YES buy offers on the market during the candlestick period.")
+    yes_ask: BidAskDistributionHistorical = Field(..., description="Open, high, low, close (OHLC) data for YES sell offers on the market during the candlestick period.")
+    price: PriceDistributionHistorical = Field(..., description="Open, high, low, close (OHLC) and more data for trade YES contract prices on the market during the candlestick period.")
+    volume: str = Field(..., description="String representation of the number of contracts bought on the market during the candlestick period.")
+    open_interest: str = Field(..., description="String representation of the number of contracts bought on the market by end of the candlestick period (end_period_ts).")
 
 
 class ApiKey(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    api_key_id: str
-    name: str
-    scopes: list[str]
+    api_key_id: str = Field(..., description="Unique identifier for the API key")
+    name: str = Field(..., description="User-provided name for the API key")
+    scopes: list[str] = Field(..., description="List of scopes granted to this API key. Valid values are 'read' and 'write'.")
 
 
 class ScopeList(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    scopes: list[str]
+    scopes: list[str] = Field(..., description="List of scopes")
 
 
 class SportFilterDetails(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    scopes: list[str]
-    competitions: dict[str, ScopeList]
+    scopes: list[str] = Field(..., description="List of scopes available for this sport")
+    competitions: dict[str, ScopeList] = Field(..., description="Mapping of competitions to their scope lists")
 
 
 class EndpointTokenCost(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    method: str
-    path: str
-    cost: int
+    method: str = Field(..., description="HTTP method for the endpoint.")
+    path: str = Field(..., description="API route path for the endpoint.")
+    cost: int = Field(..., description="Configured token cost for an endpoint whose cost differs from the default cost.")
 
 
 class ExchangeStatus(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    exchange_active: bool
-    trading_active: bool
-    exchange_estimated_resume_time: str | None = None
+    exchange_active: bool = Field(..., description="False if the core Kalshi exchange is no longer taking any state changes at all. This includes but is not limited to trading, new users, and transfers. True unless we are under maintenance.")
+    trading_active: bool = Field(..., description="True if we are currently permitting trading on the exchange. This is true during trading hours and false outside exchange hours. Kalshi reserves the right to pause at any time in case issues are detected.")
+    exchange_estimated_resume_time: str | None = Field(None, description="Estimated downtime for the current exchange maintenance window. However, this is not guaranteed and can be extended.")
 
 
 class Announcement(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    type_: str = Field(..., alias="type")
-    message: str
-    delivery_time: str
-    status: str
-
-
-class MaintenanceWindow(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    start_datetime: str
-    end_datetime: str
+    type_: str = Field(..., alias="type", description="The type of the announcement.")
+    message: str = Field(..., description="The message contained within the announcement.")
+    delivery_time: str = Field(..., description="The time the announcement was delivered.")
+    status: str = Field(..., description="The current status of this announcement.")
 
 
 class DailySchedule(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    open_time: str
-    close_time: str
+    open_time: str = Field(..., description="Opening time in ET (Eastern Time) format HH:MM.")
+    close_time: str = Field(..., description="Closing time in ET (Eastern Time) format HH:MM.")
 
 
 class WeeklySchedule(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    start_time: str
-    end_time: str
-    monday: list[DailySchedule]
-    tuesday: list[DailySchedule]
-    wednesday: list[DailySchedule]
-    thursday: list[DailySchedule]
-    friday: list[DailySchedule]
-    saturday: list[DailySchedule]
-    sunday: list[DailySchedule]
+    start_time: str = Field(..., description="Start date and time for when this weekly schedule is effective.")
+    end_time: str = Field(..., description="End date and time for when this weekly schedule is no longer effective.")
+    monday: list[DailySchedule] = Field(..., description="Trading hours for Monday. May contain multiple sessions.")
+    tuesday: list[DailySchedule] = Field(..., description="Trading hours for Tuesday. May contain multiple sessions.")
+    wednesday: list[DailySchedule] = Field(..., description="Trading hours for Wednesday. May contain multiple sessions.")
+    thursday: list[DailySchedule] = Field(..., description="Trading hours for Thursday. May contain multiple sessions.")
+    friday: list[DailySchedule] = Field(..., description="Trading hours for Friday. May contain multiple sessions.")
+    saturday: list[DailySchedule] = Field(..., description="Trading hours for Saturday. May contain multiple sessions.")
+    sunday: list[DailySchedule] = Field(..., description="Trading hours for Sunday. May contain multiple sessions.")
+
+
+class MaintenanceWindow(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    start_datetime: str = Field(..., description="Start date and time of the maintenance window.")
+    end_datetime: str = Field(..., description="End date and time of the maintenance window.")
 
 
 class Schedule(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    standard_hours: list[WeeklySchedule]
-    maintenance_windows: list[MaintenanceWindow]
-
-
-class BidAskDistribution(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open_dollars: str
-    low_dollars: str
-    high_dollars: str
-    close_dollars: str
+    standard_hours: list[WeeklySchedule] = Field(..., description="The standard operating hours of the exchange. All times are expressed in ET. Outside of these times trading will be unavailable.")
+    maintenance_windows: list[MaintenanceWindow] = Field(..., description="Scheduled maintenance windows, during which the exchange may be unavailable.")
 
 
 class PriceDistribution(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    open_dollars: str | None = None
-    low_dollars: str | None = None
-    high_dollars: str | None = None
-    close_dollars: str | None = None
-    mean_dollars: str | None = None
-    previous_dollars: str | None = None
-    min_dollars: str | None = None
-    max_dollars: str | None = None
+    open_dollars: str | None = Field(None, description="First traded YES contract price on the market during the candlestick period (in dollars). May be null if there was no trade during the period.")
+    low_dollars: str | None = Field(None, description="Lowest traded YES contract price on the market during the candlestick period (in dollars). May be null if there was no trade during the period.")
+    high_dollars: str | None = Field(None, description="Highest traded YES contract price on the market during the candlestick period (in dollars). May be null if there was no trade during the period.")
+    close_dollars: str | None = Field(None, description="Last traded YES contract price on the market during the candlestick period (in dollars). May be null if there was no trade during the period.")
+    mean_dollars: str | None = Field(None, description="Mean traded YES contract price on the market during the candlestick period (in dollars). May be null if there was no trade during the period.")
+    previous_dollars: str | None = Field(None, description="Last traded YES contract price on the market before the candlestick period (in dollars). May be null if there were no trades before the period.")
+    min_dollars: str | None = Field(None, description="Minimum close price of any market during the candlestick period (in dollars).")
+    max_dollars: str | None = Field(None, description="Maximum close price of any market during the candlestick period (in dollars).")
+
+
+class BidAskDistribution(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestick(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    end_period_ts: int
-    yes_bid: BidAskDistribution
-    yes_ask: BidAskDistribution
-    price: PriceDistribution
-    volume_fp: str
-    open_interest_fp: str
+    end_period_ts: int = Field(..., description="Unix timestamp for the inclusive end of the candlestick period.")
+    yes_bid: BidAskDistribution = Field(..., description="Open, high, low, close (OHLC) data for YES buy offers on the market during the candlestick period.")
+    yes_ask: BidAskDistribution = Field(..., description="Open, high, low, close (OHLC) data for YES sell offers on the market during the candlestick period.")
+    price: PriceDistribution = Field(..., description="Open, high, low, close (OHLC) and more data for trade YES contract prices on the market during the candlestick period.")
+    volume_fp: str = Field(..., description="String representation of the number of contracts bought on the market during the candlestick period.")
+    open_interest_fp: str = Field(..., description="String representation of the number of contracts bought on the market by end of the candlestick period (end_period_ts).")
 
 
 class LiveData(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    type_: str = Field(..., alias="type")
-    details: dict[str, Any]
-    milestone_id: str
+    type_: str = Field(..., alias="type", description="Type of live data")
+    details: dict[str, Any] = Field(..., description="Live data details as a flexible object")
+    milestone_id: str = Field(..., description="Milestone ID")
 
 
 class PlayByPlay(BaseModel):
@@ -175,276 +175,276 @@ class PlayByPlay(BaseModel):
 class Settlement(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    ticker: str
-    event_ticker: str
-    market_result: str
-    yes_count_fp: str
-    yes_total_cost_dollars: str
-    no_count_fp: str
-    no_total_cost_dollars: str
-    revenue: int
-    settled_time: str
-    fee_cost: str
-    value: int | None = None
+    ticker: str = Field(..., description="The ticker symbol of the market that was settled.")
+    event_ticker: str = Field(..., description="The event ticker symbol of the market that was settled.")
+    market_result: str = Field(..., description="The outcome of the market settlement. 'yes' = market resolved to YES, 'no' = market resolved to NO, 'scalar' = scalar market settled at a specific value, 'void' = market was voided/cancelled and all positions returned at original cost.")
+    yes_count_fp: str = Field(..., description="String representation of the number of YES contracts owned at the time of settlement.")
+    yes_total_cost_dollars: str = Field(..., description="Total cost basis of all YES contracts in fixed-point dollars.")
+    no_count_fp: str = Field(..., description="String representation of the number of NO contracts owned at the time of settlement.")
+    no_total_cost_dollars: str = Field(..., description="Total cost basis of all NO contracts in fixed-point dollars.")
+    revenue: int = Field(..., description="Total revenue earned from this settlement in cents (winning contracts pay out 100 cents each).")
+    settled_time: str = Field(..., description="Timestamp when the market was settled and payouts were processed.")
+    fee_cost: str = Field(..., description="Total fees paid in fixed point dollars.")
+    value: int | None = Field(None, description="Payout of a single yes contract in cents.")
 
 
 class Order(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     order_id: str
-    user_id: str
+    user_id: str = Field(..., description="Unique identifier for users")
     client_order_id: str
     ticker: str
     side: str
     action: str
     type_: str = Field(..., alias="type")
     status: OrderStatus
-    yes_price_dollars: str
-    no_price_dollars: str
-    fill_count_fp: str
-    remaining_count_fp: str
-    initial_count_fp: str
-    taker_fill_cost_dollars: str
-    maker_fill_cost_dollars: str
-    taker_fees_dollars: str
-    maker_fees_dollars: str
+    yes_price_dollars: str = Field(..., description="The yes price for this order in fixed-point dollars")
+    no_price_dollars: str = Field(..., description="The no price for this order in fixed-point dollars")
+    fill_count_fp: str = Field(..., description="String representation of the number of contracts that have been filled")
+    remaining_count_fp: str = Field(..., description="String representation of the remaining contracts for this order")
+    initial_count_fp: str = Field(..., description="String representation of the initial size of the order (contract units)")
+    taker_fill_cost_dollars: str = Field(..., description="The cost of filled taker orders in dollars")
+    maker_fill_cost_dollars: str = Field(..., description="The cost of filled maker orders in dollars")
+    taker_fees_dollars: str = Field(..., description="Fees paid on filled taker contracts, in dollars")
+    maker_fees_dollars: str = Field(..., description="Fees paid on filled maker contracts, in dollars")
     expiration_time: str | None = None
     created_time: str | None = None
-    last_update_time: str | None = None
+    last_update_time: str | None = Field(None, description="The last update to an order (modify, cancel, fill)")
     self_trade_prevention_type: SelfTradePreventionType | None = None
-    order_group_id: str | None = None
-    cancel_order_on_pause: bool | None = None
-    subaccount_number: int | None = None
+    order_group_id: str | None = Field(None, description="The order group this order is part of")
+    cancel_order_on_pause: bool | None = Field(None, description="If this flag is set to true, the order will be canceled if the order is open and trading on the exchange is paused for any reason.")
+    subaccount_number: int | None = Field(None, description="Subaccount number (0 for primary, 1-32 for subaccounts).")
 
 
 class Milestone(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
-    category: str
-    type_: str = Field(..., alias="type")
-    start_date: str
-    end_date: str | None = None
-    related_event_tickers: list[str]
-    title: str
-    notification_message: str
-    source_id: str | None = None
-    source_ids: dict[str, str] | None = None
-    details: dict[str, Any]
-    primary_event_tickers: list[str]
-    last_updated_ts: str
+    id: str = Field(..., description="Unique identifier for the milestone.")
+    category: str = Field(..., description="Category of the milestone. E.g. Sports, Elections, Esports, Crypto.")
+    type_: str = Field(..., alias="type", description="Type of the milestone. E.g. football_game, basketball_game, soccer_tournament_multi_leg, baseball_game, hockey_match, golf_tournament, political_race.")
+    start_date: str = Field(..., description="Start date of the milestone.")
+    end_date: str | None = Field(None, description="End date of the milestone, if any.")
+    related_event_tickers: list[str] = Field(..., description="List of event tickers related to this milestone.")
+    title: str = Field(..., description="Title of the milestone.")
+    notification_message: str = Field(..., description="Notification message for the milestone.")
+    source_id: str | None = Field(None, description="Source id of milestone if available.")
+    source_ids: dict[str, str] | None = Field(None, description="Source ids of milestone if available.")
+    details: dict[str, Any] = Field(..., description="Additional details about the milestone.")
+    primary_event_tickers: list[str] = Field(..., description="List of event tickers directly related to the outcome of this milestone.")
+    last_updated_ts: str = Field(..., description="Last time this structured target was updated.")
 
 
 class OrderQueuePosition(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    order_id: str
-    market_ticker: str
-    queue_position_fp: str
+    order_id: str = Field(..., description="The order ID")
+    market_ticker: str = Field(..., description="The market ticker")
+    queue_position_fp: str = Field(..., description="The number of preceding shares before the order in the queue.")
 
 
 class MarketPosition(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    ticker: str
-    total_traded_dollars: str
-    position_fp: str
-    market_exposure_dollars: str
-    realized_pnl_dollars: str
-    fees_paid_dollars: str
-    last_updated_ts: str
+    ticker: str = Field(..., description="Unique identifier for the market")
+    total_traded_dollars: str = Field(..., description="Total spent on this market in dollars")
+    position_fp: str = Field(..., description="String representation of the number of contracts bought in this market. Negative means NO contracts and positive means YES contracts")
+    market_exposure_dollars: str = Field(..., description="Cost of the aggregate market position in dollars")
+    realized_pnl_dollars: str = Field(..., description="Locked in profit and loss, in dollars")
+    fees_paid_dollars: str = Field(..., description="Fees paid on fill orders, in dollars")
+    last_updated_ts: str = Field(..., description="Last time the position is updated")
 
 
 class EventPosition(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str
-    total_cost_dollars: str
-    total_cost_shares_fp: str
-    event_exposure_dollars: str
-    realized_pnl_dollars: str
-    fees_paid_dollars: str
+    event_ticker: str = Field(..., description="Unique identifier for events")
+    total_cost_dollars: str = Field(..., description="Total spent on this event in dollars")
+    total_cost_shares_fp: str = Field(..., description="String representation of the total number of shares traded on this event (including both YES and NO contracts)")
+    event_exposure_dollars: str = Field(..., description="Cost of the aggregate event position in dollars")
+    realized_pnl_dollars: str = Field(..., description="Locked in profit and loss, in dollars")
+    fees_paid_dollars: str = Field(..., description="Fees paid on fill orders, in dollars")
 
 
 class Trade(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    trade_id: str
-    ticker: str
-    count_fp: str
-    yes_price_dollars: str
-    no_price_dollars: str
-    taker_side: str
-    created_time: str
+    trade_id: str = Field(..., description="Unique identifier for this trade")
+    ticker: str = Field(..., description="Unique identifier for the market")
+    count_fp: str = Field(..., description="String representation of the number of contracts bought or sold in this trade")
+    yes_price_dollars: str = Field(..., description="Yes price for this trade in dollars")
+    no_price_dollars: str = Field(..., description="No price for this trade in dollars")
+    taker_side: str = Field(..., description="Side for the taker of this trade")
+    created_time: str = Field(..., description="Timestamp when this trade was executed")
 
 
 class IncentiveProgram(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
-    market_id: str
-    market_ticker: str
-    incentive_type: str
-    start_date: str
-    end_date: str
-    period_reward: int
-    paid_out: bool
-    discount_factor_bps: int | None = None
-    target_size_fp: str | None = None
+    id: str = Field(..., description="Unique identifier for the incentive program")
+    market_id: str = Field(..., description="The unique identifier of the market associated with this incentive program")
+    market_ticker: str = Field(..., description="The ticker symbol of the market associated with this incentive program")
+    incentive_type: str = Field(..., description="Type of incentive program")
+    start_date: str = Field(..., description="Start date of the incentive program")
+    end_date: str = Field(..., description="End date of the incentive program")
+    period_reward: int = Field(..., description="Total reward for the period in centi-cents")
+    paid_out: bool = Field(..., description="Whether the incentive has been paid out")
+    discount_factor_bps: int | None = Field(None, description="Discount factor in basis points (optional)")
+    target_size_fp: str | None = Field(None, description="String representation of the target size for the incentive program (optional)")
 
 
 class Fill(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    fill_id: str
-    trade_id: str
-    order_id: str
-    ticker: str
-    market_ticker: str
-    side: str
-    action: str
-    count_fp: str
-    yes_price_dollars: str
-    no_price_dollars: str
-    is_taker: bool
-    created_time: str | None = None
-    fee_cost: str
-    subaccount_number: int | None = None
-    ts: int | None = None
+    fill_id: str = Field(..., description="Unique identifier for this fill")
+    trade_id: str = Field(..., description="Unique identifier for this fill (legacy field name, same as fill_id)")
+    order_id: str = Field(..., description="Unique identifier for the order that resulted in this fill")
+    ticker: str = Field(..., description="Unique identifier for the market")
+    market_ticker: str = Field(..., description="Unique identifier for the market (legacy field name, same as ticker)")
+    side: str = Field(..., description="Specifies if this is a 'yes' or 'no' fill")
+    action: str = Field(..., description="Specifies if this is a buy or sell order")
+    count_fp: str = Field(..., description="String representation of the number of contracts bought or sold in this fill")
+    yes_price_dollars: str = Field(..., description="Fill price for the yes side in fixed-point dollars")
+    no_price_dollars: str = Field(..., description="Fill price for the no side in fixed-point dollars")
+    is_taker: bool = Field(..., description="If true, this fill was a taker (removed liquidity from the order book)")
+    created_time: str | None = Field(None, description="Timestamp when this fill was executed")
+    fee_cost: str = Field(..., description="Fee cost in fixed-point dollars")
+    subaccount_number: int | None = Field(None, description="Subaccount number (0 for primary, 1-32 for subaccounts). Present for direct users.")
+    ts: int | None = Field(None, description="Unix timestamp when this fill was executed (legacy field name)")
 
 
 class StructuredTarget(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str | None = None
-    name: str | None = None
-    type_: str | None = Field(None, alias="type")
-    details: dict[str, Any] | None = None
-    source_id: str | None = None
-    source_ids: dict[str, str] | None = None
-    last_updated_ts: str | None = None
+    id: str | None = Field(None, description="Unique identifier for the structured target.")
+    name: str | None = Field(None, description="Name of the structured target.")
+    type_: str | None = Field(None, alias="type", description="Type of the structured target.")
+    details: dict[str, Any] | None = Field(None, description="Additional details about the structured target. Contains flexible JSON data specific to the target type.")
+    source_id: str | None = Field(None, description="External source identifier for the structured target, if available (e.g., third-party data provider ID).")
+    source_ids: dict[str, str] | None = Field(None, description="Source ids of structured target if available.")
+    last_updated_ts: str | None = Field(None, description="Timestamp when this structured target was last updated.")
 
 
 class OrderGroup(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
-    contracts_limit_fp: str | None = None
-    is_auto_cancel_enabled: bool
+    id: str = Field(..., description="Unique identifier for the order group")
+    contracts_limit_fp: str | None = Field(None, description="String representation of the current maximum contracts allowed over a rolling 15-second window.")
+    is_auto_cancel_enabled: bool = Field(..., description="Whether auto-cancel is enabled for this order group")
 
 
 class MveSelectedLeg(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str | None = None
-    market_ticker: str | None = None
-    side: str | None = None
-    yes_settlement_value_dollars: str | None = None
+    event_ticker: str | None = Field(None, description="Unique identifier for the selected event")
+    market_ticker: str | None = Field(None, description="Unique identifier for the selected market")
+    side: str | None = Field(None, description="The side of the selected market")
+    yes_settlement_value_dollars: str | None = Field(None, description="The settlement value of the YES/LONG side of the contract in dollars. Only filled after determination")
 
 
 class RFQ(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
-    creator_id: str
-    market_ticker: str
-    contracts_fp: str
-    target_cost_dollars: str | None = None
-    status: str
-    created_ts: str
-    mve_collection_ticker: str | None = None
-    mve_selected_legs: list[MveSelectedLeg] | None = None
-    rest_remainder: bool | None = None
-    cancellation_reason: str | None = None
-    creator_user_id: str | None = None
-    creator_subaccount: int | None = None
-    cancelled_ts: str | None = None
-    updated_ts: str | None = None
+    id: str = Field(..., description="Unique identifier for the RFQ")
+    creator_id: str = Field(..., description="Public communications ID of the RFQ creator.")
+    market_ticker: str = Field(..., description="The ticker of the market this RFQ is for")
+    contracts_fp: str = Field(..., description="String representation of the number of contracts requested in the RFQ")
+    target_cost_dollars: str | None = Field(None, description="Total value of the RFQ in dollars")
+    status: str = Field(..., description="Current status of the RFQ (open, closed)")
+    created_ts: str = Field(..., description="Timestamp when the RFQ was created")
+    mve_collection_ticker: str | None = Field(None, description="Ticker of the MVE collection this market belongs to")
+    mve_selected_legs: list[MveSelectedLeg] | None = Field(None, description="Selected legs for the MVE collection")
+    rest_remainder: bool | None = Field(None, description="Whether to rest the remainder of the RFQ after execution")
+    cancellation_reason: str | None = Field(None, description="Reason for RFQ cancellation if cancelled")
+    creator_user_id: str | None = Field(None, description="User ID of the RFQ creator (private field)")
+    creator_subaccount: int | None = Field(None, description="Subaccount number of the RFQ creator (visible when the caller is the RFQ creator)")
+    cancelled_ts: str | None = Field(None, description="Timestamp when the RFQ was cancelled")
+    updated_ts: str | None = Field(None, description="Timestamp when the RFQ was last updated")
 
 
 class Quote(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
-    rfq_id: str
-    creator_id: str
-    rfq_creator_id: str
-    market_ticker: str
-    contracts_fp: str
-    yes_bid_dollars: str
-    no_bid_dollars: str
-    created_ts: str
-    updated_ts: str
-    status: str
-    accepted_side: str | None = None
-    accepted_ts: str | None = None
-    confirmed_ts: str | None = None
-    executed_ts: str | None = None
-    cancelled_ts: str | None = None
-    rest_remainder: bool | None = None
-    cancellation_reason: str | None = None
-    creator_user_id: str | None = None
-    rfq_creator_user_id: str | None = None
-    rfq_target_cost_dollars: str | None = None
-    rfq_creator_order_id: str | None = None
-    creator_order_id: str | None = None
-    creator_subaccount: int | None = None
-    rfq_creator_subaccount: int | None = None
-    yes_contracts_fp: str | None = None
-    no_contracts_fp: str | None = None
+    id: str = Field(..., description="Unique identifier for the quote")
+    rfq_id: str = Field(..., description="ID of the RFQ this quote is responding to")
+    creator_id: str = Field(..., description="Public communications ID of the quote creator")
+    rfq_creator_id: str = Field(..., description="Public communications ID of the RFQ creator")
+    market_ticker: str = Field(..., description="The ticker of the market this quote is for")
+    contracts_fp: str = Field(..., description="String representation of the number of contracts in the quote")
+    yes_bid_dollars: str = Field(..., description="Bid price for YES contracts, in dollars")
+    no_bid_dollars: str = Field(..., description="Bid price for NO contracts, in dollars")
+    created_ts: str = Field(..., description="Timestamp when the quote was created")
+    updated_ts: str = Field(..., description="Timestamp when the quote was last updated")
+    status: str = Field(..., description="Current status of the quote")
+    accepted_side: str | None = Field(None, description="The side that was accepted (yes or no)")
+    accepted_ts: str | None = Field(None, description="Timestamp when the quote was accepted")
+    confirmed_ts: str | None = Field(None, description="Timestamp when the quote was confirmed")
+    executed_ts: str | None = Field(None, description="Timestamp when the quote was executed")
+    cancelled_ts: str | None = Field(None, description="Timestamp when the quote was cancelled")
+    rest_remainder: bool | None = Field(None, description="Whether to rest the remainder of the quote after execution")
+    cancellation_reason: str | None = Field(None, description="Reason for quote cancellation if cancelled")
+    creator_user_id: str | None = Field(None, description="User ID of the quote creator (private field)")
+    rfq_creator_user_id: str | None = Field(None, description="User ID of the RFQ creator (private field)")
+    rfq_target_cost_dollars: str | None = Field(None, description="Total value requested in the RFQ in dollars")
+    rfq_creator_order_id: str | None = Field(None, description="Order ID for the RFQ creator (private field)")
+    creator_order_id: str | None = Field(None, description="Order ID for the quote creator (private field)")
+    creator_subaccount: int | None = Field(None, description="Subaccount number of the quote creator (visible when the caller is the quote creator)")
+    rfq_creator_subaccount: int | None = Field(None, description="Subaccount number of the RFQ creator (visible when the caller is the RFQ creator)")
+    yes_contracts_fp: str | None = Field(None, description="Number of YES contracts offered in the quote (fixed-point)")
+    no_contracts_fp: str | None = Field(None, description="Number of NO contracts offered in the quote (fixed-point)")
 
 
 class BatchCancelOrdersRequestOrder(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    order_id: str
-    subaccount: int | None = None
+    order_id: str = Field(..., description="Order ID to cancel")
+    subaccount: int | None = Field(None, description="Optional subaccount number to use for this cancellation (0 for primary, 1-32 for subaccounts)")
 
 
 class AssociatedEvent(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    ticker: str
-    is_yes_only: bool
-    size_max: int | None = None
-    size_min: int | None = None
-    active_quoters: list[str]
+    ticker: str = Field(..., description="The event ticker.")
+    is_yes_only: bool = Field(..., description="Whether only the 'yes' side can be used for this event.")
+    size_max: int | None = Field(None, description="Maximum number of markets from this event (inclusive). Null means no limit.")
+    size_min: int | None = Field(None, description="Minimum number of markets from this event (inclusive). Null means no limit.")
+    active_quoters: list[str] = Field(..., description="List of active quoters for this event.")
 
 
 class MultivariateEventCollection(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    collection_ticker: str
-    series_ticker: str
-    title: str
-    description: str
-    open_date: str
-    close_date: str
-    associated_events: list[AssociatedEvent]
-    associated_event_tickers: list[str]
-    is_ordered: bool
-    is_single_market_per_event: bool
-    is_all_yes: bool
-    size_min: int
-    size_max: int
-    functional_description: str
+    collection_ticker: str = Field(..., description="Unique identifier for the collection.")
+    series_ticker: str = Field(..., description="Series associated with the collection. Events produced in the collection will be associated with this series.")
+    title: str = Field(..., description="Title of the collection.")
+    description: str = Field(..., description="Short description of the collection.")
+    open_date: str = Field(..., description="The open date of the collection. Before this time, the collection cannot be interacted with.")
+    close_date: str = Field(..., description="The close date of the collection. After this time, the collection cannot be interacted with.")
+    associated_events: list[AssociatedEvent] = Field(..., description="List of events with their individual configuration.")
+    associated_event_tickers: list[str] = Field(..., description="[DEPRECATED - Use associated_events instead] A list of events associated with the collection. Markets in these events can be passed as inputs to the Lookup and Create endpoints.")
+    is_ordered: bool = Field(..., description="Whether the collection is ordered. If true, the order of markets passed into Lookup/Create affects the output. If false, the order does not matter.")
+    is_single_market_per_event: bool = Field(..., description="[DEPRECATED - Use associated_events instead] Whether the collection accepts multiple markets from the same event passed into Lookup/Create.")
+    is_all_yes: bool = Field(..., description="[DEPRECATED - Use associated_events instead] Whether the collection requires that only the market side of 'yes' may be used.")
+    size_min: int = Field(..., description="The minimum number of markets that must be passed into Lookup/Create (inclusive).")
+    size_max: int = Field(..., description="The maximum number of markets that must be passed into Lookup/Create (inclusive).")
+    functional_description: str = Field(..., description="A functional description of the collection describing how inputs affect the output.")
 
 
 class TickerPair(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    market_ticker: str
-    event_ticker: str
-    side: str
+    market_ticker: str = Field(..., description="Market ticker identifier.")
+    event_ticker: str = Field(..., description="Event ticker identifier.")
+    side: str = Field(..., description="Side of the market (yes or no).")
 
 
 class LookupPoint(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str
-    market_ticker: str
-    selected_markets: list[TickerPair]
-    last_queried_ts: str
+    event_ticker: str = Field(..., description="Event ticker for the lookup point.")
+    market_ticker: str = Field(..., description="Market ticker for the lookup point.")
+    selected_markets: list[TickerPair] = Field(..., description="Markets that were selected for this lookup.")
+    last_queried_ts: str = Field(..., description="Timestamp when this lookup was last queried.")
 
 
 PriceLevelDollarsCountFp = list[str]
@@ -469,35 +469,35 @@ class MarketOrderbookFp(BaseModel):
 class MarketMetadata(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    market_ticker: str
-    image_url: str
-    color_code: str
+    market_ticker: str = Field(..., description="The ticker of the market.")
+    image_url: str = Field(..., description="A path to an image that represents this market.")
+    color_code: str = Field(..., description="The color code for the market.")
 
 
 class PercentilePoint(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    percentile: int
-    raw_numerical_forecast: float
-    numerical_forecast: float
-    formatted_forecast: str
+    percentile: int = Field(..., description="The percentile value (0-10000).")
+    raw_numerical_forecast: float = Field(..., description="The raw numerical forecast value.")
+    numerical_forecast: float = Field(..., description="The processed numerical forecast value.")
+    formatted_forecast: str = Field(..., description="The human-readable formatted forecast value.")
 
 
 class ForecastPercentilesPoint(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str
-    end_period_ts: int
-    period_interval: int
-    percentile_points: list[PercentilePoint]
+    event_ticker: str = Field(..., description="The event ticker this forecast is for.")
+    end_period_ts: int = Field(..., description="Unix timestamp for the inclusive end of the forecast period.")
+    period_interval: int = Field(..., description="Length of the forecast period in minutes.")
+    percentile_points: list[PercentilePoint] = Field(..., description="Array of forecast values at different percentiles.")
 
 
 class PriceRange(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    start: str
-    end: str
-    step: str
+    start: str = Field(..., description="Starting price for this range in dollars")
+    end: str = Field(..., description="Ending price for this range in dollars")
+    step: str = Field(..., description="Price step/tick size for this range in dollars")
 
 
 class Market(BaseModel):
@@ -505,103 +505,103 @@ class Market(BaseModel):
 
     ticker: str
     event_ticker: str
-    market_type: str
-    yes_sub_title: str
-    no_sub_title: str
+    market_type: str = Field(..., description="Identifies the type of market")
+    yes_sub_title: str = Field(..., description="Shortened title for the yes side of this market")
+    no_sub_title: str = Field(..., description="Shortened title for the no side of this market")
     created_time: str
-    updated_time: str
+    updated_time: str = Field(..., description="Time of the last non-trading metadata update.")
     open_time: str
     close_time: str
-    expected_expiration_time: str | None = None
-    latest_expiration_time: str
-    settlement_timer_seconds: int
-    status: str
-    yes_bid_dollars: str
-    yes_bid_size_fp: str
-    yes_ask_dollars: str
-    yes_ask_size_fp: str
-    no_bid_dollars: str
-    no_ask_dollars: str
-    last_price_dollars: str
-    volume_fp: str
-    volume_24h_fp: str
+    expected_expiration_time: str | None = Field(None, description="Time when this market is expected to expire")
+    latest_expiration_time: str = Field(..., description="Latest possible time for this market to expire")
+    settlement_timer_seconds: int = Field(..., description="The amount of time after determination that the market settles")
+    status: str = Field(..., description="The current status of the market in its lifecycle.")
+    yes_bid_dollars: str = Field(..., description="Price for the highest YES buy offer on this market in dollars")
+    yes_bid_size_fp: str = Field(..., description="Total contract size of orders to buy YES at the best bid price (fixed-point count string).")
+    yes_ask_dollars: str = Field(..., description="Price for the lowest YES sell offer on this market in dollars")
+    yes_ask_size_fp: str = Field(..., description="Total contract size of orders to sell YES at the best ask price (fixed-point count string).")
+    no_bid_dollars: str = Field(..., description="Price for the highest NO buy offer on this market in dollars")
+    no_ask_dollars: str = Field(..., description="Price for the lowest NO sell offer on this market in dollars")
+    last_price_dollars: str = Field(..., description="Price for the last traded YES contract on this market in dollars")
+    volume_fp: str = Field(..., description="String representation of the market volume in contracts")
+    volume_24h_fp: str = Field(..., description="String representation of the 24h market volume in contracts")
     result: str
     can_close_early: bool
     fractional_trading_enabled: bool
-    open_interest_fp: str
-    notional_value_dollars: str
-    previous_yes_bid_dollars: str
-    previous_yes_ask_dollars: str
-    previous_price_dollars: str
-    settlement_value_dollars: str | None = None
-    settlement_ts: str | None = None
-    expiration_value: str
-    occurrence_datetime: str | None = None
-    fee_waiver_expiration_time: str | None = None
-    early_close_condition: str | None = None
-    strike_type: str | None = None
-    floor_strike: float | None = None
-    cap_strike: float | None = None
-    functional_strike: str | None = None
-    custom_strike: dict[str, Any] | None = None
-    rules_primary: str
-    rules_secondary: str
-    mve_collection_ticker: str | None = None
+    open_interest_fp: str = Field(..., description="String representation of the number of contracts bought on this market disconsidering netting")
+    notional_value_dollars: str = Field(..., description="The total value of a single contract at settlement in dollars")
+    previous_yes_bid_dollars: str = Field(..., description="Price for the highest YES buy offer on this market a day ago in dollars")
+    previous_yes_ask_dollars: str = Field(..., description="Price for the lowest YES sell offer on this market a day ago in dollars")
+    previous_price_dollars: str = Field(..., description="Price for the last traded YES contract on this market a day ago in dollars")
+    settlement_value_dollars: str | None = Field(None, description="The settlement value of the YES/LONG side of the contract in dollars. Only filled after determination")
+    settlement_ts: str | None = Field(None, description="Timestamp when the market was settled. Only filled for settled markets")
+    expiration_value: str = Field(..., description="The value that was considered for the settlement")
+    occurrence_datetime: str | None = Field(None, description="The recorded datetime when the underlying event occurred, if available")
+    fee_waiver_expiration_time: str | None = Field(None, description="Time when this market's fee waiver expires")
+    early_close_condition: str | None = Field(None, description="The condition under which the market can close early")
+    strike_type: str | None = Field(None, description="Strike type defines how the market strike is defined and evaluated")
+    floor_strike: float | None = Field(None, description="Minimum expiration value that leads to a YES settlement")
+    cap_strike: float | None = Field(None, description="Maximum expiration value that leads to a YES settlement")
+    functional_strike: str | None = Field(None, description="Mapping from expiration values to settlement values")
+    custom_strike: dict[str, Any] | None = Field(None, description="Expiration value for each target that leads to a YES settlement")
+    rules_primary: str = Field(..., description="A plain language description of the most important market terms")
+    rules_secondary: str = Field(..., description="A plain language description of secondary market terms")
+    mve_collection_ticker: str | None = Field(None, description="The ticker of the multivariate event collection")
     mve_selected_legs: list[MveSelectedLeg] | None = None
     primary_participant_key: str | None = None
-    price_level_structure: str
-    price_ranges: list[PriceRange]
-    is_provisional: bool | None = None
+    price_level_structure: str = Field(..., description="Price level structure for this market, defining price ranges and tick sizes")
+    price_ranges: list[PriceRange] = Field(..., description="Valid price ranges for orders on this market")
+    is_provisional: bool | None = Field(None, description="If true, the market may be removed after determination if there is no activity on it")
 
 
 class EventData(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_ticker: str
-    series_ticker: str
-    sub_title: str
-    title: str
-    collateral_return_type: str
-    mutually_exclusive: bool
-    strike_date: str | None = None
-    strike_period: str | None = None
-    markets: list[Market] | None = None
-    available_on_brokers: bool
-    product_metadata: dict[str, Any] | None = None
-    last_updated_ts: str | None = None
+    event_ticker: str = Field(..., description="Unique identifier for this event.")
+    series_ticker: str = Field(..., description="Unique identifier for the series this event belongs to.")
+    sub_title: str = Field(..., description="Shortened descriptive title for the event.")
+    title: str = Field(..., description="Full title of the event.")
+    collateral_return_type: str = Field(..., description="Specifies how collateral is returned when markets settle (e.g., 'binary' for standard yes/no markets).")
+    mutually_exclusive: bool = Field(..., description="If true, only one market in this event can resolve to 'yes'. If false, multiple markets can resolve to 'yes'.")
+    strike_date: str | None = Field(None, description="The specific date this event is based on. Only filled when the event uses a date strike (mutually exclusive with strike_period).")
+    strike_period: str | None = Field(None, description="The time period this event covers (e.g., 'week', 'month'). Only filled when the event uses a period strike (mutually exclusive with strike_date).")
+    markets: list[Market] | None = Field(None, description="Array of markets associated with this event. Only populated when 'with_nested_markets=true' is specified in the request.")
+    available_on_brokers: bool = Field(..., description="Whether this event is available to trade on brokers.")
+    product_metadata: dict[str, Any] | None = Field(None, description="Additional metadata for the event.")
+    last_updated_ts: str | None = Field(None, description="Timestamp of when this event's metadata was last updated.")
 
 
 class SettlementSource(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    name: str | None = None
-    url: str | None = None
+    name: str | None = Field(None, description="Name of the settlement source")
+    url: str | None = Field(None, description="URL to the settlement source")
 
 
 class Series(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    ticker: str
-    frequency: str
-    title: str
-    category: str
-    tags: list[str]
-    settlement_sources: list[SettlementSource]
-    contract_url: str
-    contract_terms_url: str
-    product_metadata: dict[str, Any] | None = None
-    fee_type: str
-    fee_multiplier: float
-    additional_prohibitions: list[str]
-    volume_fp: str | None = None
-    last_updated_ts: str | None = None
+    ticker: str = Field(..., description="Ticker that identifies this series.")
+    frequency: str = Field(..., description="Description of the frequency of the series. There is no fixed value set here, but will be something human-readable like weekly, daily, one-off.")
+    title: str = Field(..., description="Title describing the series. For full context use you should use this field with the title field of the events belonging to this series.")
+    category: str = Field(..., description="Category specifies the category which this series belongs to.")
+    tags: list[str] = Field(..., description="Tags specifies the subjects that this series relates to, multiple series from different categories can have the same tags.")
+    settlement_sources: list[SettlementSource] = Field(..., description="SettlementSources specifies the official sources used for the determination of markets within the series. Methodology is defined in the rulebook.")
+    contract_url: str = Field(..., description="ContractUrl provides a direct link to the original filing of the contract which underlies the series.")
+    contract_terms_url: str = Field(..., description="ContractTermsUrl is the URL to the current terms of the contract underlying the series.")
+    product_metadata: dict[str, Any] | None = Field(None, description="Internal product metadata of the series.")
+    fee_type: str = Field(..., description="FeeType is a string representing the series' fee structure. Fee structures can be found at https://kalshi.com/docs/kalshi-fee-schedule.pdf. 'quadratic' is described by the General Trading Fees Table, 'quadratic_with_maker_fees' is described by the General Trading Fees Table with maker fees described in the Maker Fees section, 'flat' is described by the Specific Trading Fees Table.")
+    fee_multiplier: float = Field(..., description="FeeMultiplier is a floating point multiplier applied to the fee calculations.")
+    additional_prohibitions: list[str] = Field(..., description="AdditionalProhibitions is a list of additional trading prohibitions for this series.")
+    volume_fp: str | None = Field(None, description="String representation of the total number of contracts traded across all events in this series.")
+    last_updated_ts: str | None = Field(None, description="Timestamp of when this series' metadata was last updated.")
 
 
 class SeriesFeeChange(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    id: str
-    series_ticker: str
-    fee_type: str
-    fee_multiplier: float
-    scheduled_ts: str
+    id: str = Field(..., description="Unique identifier for this fee change")
+    series_ticker: str = Field(..., description="Series ticker this fee change applies to")
+    fee_type: str = Field(..., description="New fee type for the series")
+    fee_multiplier: float = Field(..., description="New fee multiplier for the series")
+    scheduled_ts: str = Field(..., description="Timestamp when this fee change is scheduled to take effect")

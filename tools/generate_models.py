@@ -153,21 +153,29 @@ def generate_model(
         is_required = prop_name in required_set
         py_type = resolve_type(prop_schema, required=is_required, included_names=included_names)
         default = resolve_default(py_type, is_required)
+        description = prop_schema.get("description", "").strip()
+
+        # Escape quotes in descriptions
+        if description:
+            description = description.replace("\\", "\\\\").replace('"', '\\"')
 
         # Handle reserved words
         field_name = prop_name
-        alias = ""
+        is_alias = prop_name in ("type", "class")
         if prop_name == "type":
             field_name = "type_"
-            alias = f' = Field({default.strip(" =") or "..."}, alias="type")'
-            default = ""
         elif prop_name == "class":
             field_name = "class_"
-            alias = f' = Field({default.strip(" =") or "..."}, alias="class")'
-            default = ""
 
-        if alias:
-            lines.append(f"    {field_name}: {py_type}{alias}")
+        # Build Field() kwargs
+        if is_alias or description:
+            default_val = default.strip(" =") or "..."
+            field_kwargs = [default_val]
+            if is_alias:
+                field_kwargs.append(f'alias="{prop_name}"')
+            if description:
+                field_kwargs.append(f'description="{description}"')
+            lines.append(f"    {field_name}: {py_type} = Field({', '.join(field_kwargs)})")
         else:
             lines.append(f"    {field_name}: {py_type}{default}")
 
@@ -335,11 +343,11 @@ def write_models(
         lines.append(f"from typing import {', '.join(sorted(typing_imports))}")
         lines.append("")
 
-    # Check if any model uses Field (aliased fields like 'type')
+    # Check if any model uses Field (aliases or descriptions)
     needs_field = False
     for schema in schemas.values():
-        for prop_name in schema.get("properties", {}):
-            if prop_name in ("type", "class"):
+        for prop_name, prop in schema.get("properties", {}).items():
+            if prop_name in ("type", "class") or prop.get("description"):
                 needs_field = True
                 break
         if needs_field:

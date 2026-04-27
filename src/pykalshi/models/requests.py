@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .enums import SelfTradePreventionType
 from .core import BatchCancelOrdersRequestOrder, TickerPair
@@ -13,76 +13,76 @@ from .core import BatchCancelOrdersRequestOrder, TickerPair
 class CreateApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    name: str
-    public_key: str
-    scopes: list[str] | None = None
+    name: str = Field(..., description="Name for the API key. This helps identify the key's purpose")
+    public_key: str = Field(..., description="RSA public key in PEM format. This will be used to verify signatures on API requests")
+    scopes: list[str] | None = Field(None, description="List of scopes to grant to the API key. Valid values are 'read' and 'write'. If 'write' is included, 'read' must also be included. Defaults to full access (['read', 'write']) if not provided.")
 
 
 class GenerateApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    name: str
-    scopes: list[str] | None = None
+    name: str = Field(..., description="Name for the API key. This helps identify the key's purpose")
+    scopes: list[str] | None = Field(None, description="List of scopes to grant to the API key. Valid values are 'read' and 'write'. If 'write' is included, 'read' must also be included. Defaults to full access (['read', 'write']) if not provided.")
 
 
 class ApplySubaccountTransferRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    client_transfer_id: str
-    from_subaccount: int
-    to_subaccount: int
-    amount_cents: int
+    client_transfer_id: str = Field(..., description="Unique client-provided transfer ID for idempotency.")
+    from_subaccount: int = Field(..., description="Source subaccount number (0 for primary, 1-32 for numbered subaccounts).")
+    to_subaccount: int = Field(..., description="Destination subaccount number (0 for primary, 1-32 for numbered subaccounts).")
+    amount_cents: int = Field(..., description="Amount to transfer in cents.")
 
 
 class UpdateSubaccountNettingRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    subaccount_number: int
-    enabled: bool
+    subaccount_number: int = Field(..., description="Subaccount number (0 for primary, 1-32 for subaccounts).")
+    enabled: bool = Field(..., description="Whether netting is enabled for this subaccount.")
 
 
 class CreateOrderGroupRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    subaccount: int | None = None
-    contracts_limit: int | None = None
-    contracts_limit_fp: str | None = None
+    subaccount: int | None = Field(None, description="Optional subaccount number to use for this order group (0 for primary, 1-32 for subaccounts)")
+    contracts_limit: int | None = Field(None, description="Specifies the maximum number of contracts that can be matched within this group over a rolling 15-second window. Whole contracts only. Provide contracts_limit or contracts_limit_fp; if both provided they must match.")
+    contracts_limit_fp: str | None = Field(None, description="String representation of the maximum number of contracts that can be matched within this group over a rolling 15-second window. Provide contracts_limit or contracts_limit_fp; if both provided they must match.")
 
 
 class UpdateOrderGroupLimitRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    contracts_limit: int | None = None
-    contracts_limit_fp: str | None = None
+    contracts_limit: int | None = Field(None, description="New maximum number of contracts that can be matched within this group over a rolling 15-second window. Whole contracts only. Provide contracts_limit or contracts_limit_fp; if both provided they must match.")
+    contracts_limit_fp: str | None = Field(None, description="String representation of the new maximum number of contracts that can be matched within this group over a rolling 15-second window. Provide contracts_limit or contracts_limit_fp; if both provided they must match.")
 
 
 class CreateRFQRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    market_ticker: str
-    contracts: int | None = None
-    contracts_fp: str | None = None
-    target_cost_dollars: str | None = None
-    rest_remainder: bool
-    replace_existing: bool | None = None
-    subtrader_id: str | None = None
-    subaccount: int | None = None
+    market_ticker: str = Field(..., description="The ticker of the market for which to create an RFQ")
+    contracts: int | None = Field(None, description="The number of contracts for the RFQ. Whole contracts only. Contracts may be provided via contracts or contracts_fp; if both provided they must match.")
+    contracts_fp: str | None = Field(None, description="String representation of the number of contracts for the RFQ. Contracts may be provided via contracts or contracts_fp; if both provided they must match.")
+    target_cost_dollars: str | None = Field(None, description="The target cost for the RFQ in dollars")
+    rest_remainder: bool = Field(..., description="Whether to rest the remainder of the RFQ after execution")
+    replace_existing: bool | None = Field(None, description="Whether to delete existing RFQs as part of this RFQ's creation")
+    subtrader_id: str | None = Field(None, description="The subtrader to create the RFQ for (FCM members only)")
+    subaccount: int | None = Field(None, description="The subaccount number to create the RFQ for (direct members only; 0 for primary, 1-32 for subaccounts)")
 
 
 class CreateQuoteRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    rfq_id: str
-    yes_bid: str
-    no_bid: str
-    rest_remainder: bool
-    subaccount: int | None = None
+    rfq_id: str = Field(..., description="The ID of the RFQ to quote on")
+    yes_bid: str = Field(..., description="The bid price for YES contracts, in dollars")
+    no_bid: str = Field(..., description="The bid price for NO contracts, in dollars")
+    rest_remainder: bool = Field(..., description="Whether to rest the remainder of the quote after execution")
+    subaccount: int | None = Field(None, description="Optional subaccount number to place the quote under (0 for primary, 1-32 for subaccounts)")
 
 
 class AcceptQuoteRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    accepted_side: str
+    accepted_side: str = Field(..., description="The side of the quote to accept (yes or no)")
 
 
 class CreateOrderRequest(BaseModel):
@@ -92,22 +92,22 @@ class CreateOrderRequest(BaseModel):
     client_order_id: str | None = None
     side: str
     action: str
-    count: int | None = None
-    count_fp: str | None = None
+    count: int | None = Field(None, description="Order quantity in contracts (whole contracts only). Provide count or count_fp; if both provided they must match.")
+    count_fp: str | None = Field(None, description="String representation of the order quantity in contracts. Provide count or count_fp; if both provided they must match.")
     yes_price: int | None = None
     no_price: int | None = None
-    yes_price_dollars: str | None = None
-    no_price_dollars: str | None = None
+    yes_price_dollars: str | None = Field(None, description="Submitting price of the Yes side in fixed-point dollars")
+    no_price_dollars: str | None = Field(None, description="Submitting price of the No side in fixed-point dollars")
     expiration_ts: int | None = None
     time_in_force: str | None = None
-    buy_max_cost: int | None = None
+    buy_max_cost: int | None = Field(None, description="Maximum cost in cents. When specified, the order will automatically have Fill-or-Kill (FoK) behavior.")
     post_only: bool | None = None
     reduce_only: bool | None = None
-    sell_position_floor: int | None = None
+    sell_position_floor: int | None = Field(None, description="Deprecated: Use reduce_only instead. Only accepts value of 0.")
     self_trade_prevention_type: SelfTradePreventionType | None = None
-    order_group_id: str | None = None
-    cancel_order_on_pause: bool | None = None
-    subaccount: int | None = None
+    order_group_id: str | None = Field(None, description="The order group this order is part of")
+    cancel_order_on_pause: bool | None = Field(None, description="If this flag is set to true, the order will be canceled if the order is open and trading on the exchange is paused for any reason.")
+    subaccount: int | None = Field(None, description="The subaccount number to use for this order. 0 is the primary subaccount.")
 
 
 class BatchCreateOrdersRequest(BaseModel):
@@ -119,44 +119,44 @@ class BatchCreateOrdersRequest(BaseModel):
 class BatchCancelOrdersRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    orders: list[BatchCancelOrdersRequestOrder] | None = None
+    orders: list[BatchCancelOrdersRequestOrder] | None = Field(None, description="An array of orders to cancel, each optionally specifying a subaccount")
 
 
 class AmendOrderRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    subaccount: int | None = None
-    ticker: str
-    side: str
-    action: str
-    client_order_id: str | None = None
-    updated_client_order_id: str | None = None
-    yes_price: int | None = None
-    no_price: int | None = None
-    yes_price_dollars: str | None = None
-    no_price_dollars: str | None = None
-    count: int | None = None
-    count_fp: str | None = None
+    subaccount: int | None = Field(None, description="Optional subaccount number to use for this amendment (0 for primary, 1-32 for subaccounts)")
+    ticker: str = Field(..., description="Market ticker")
+    side: str = Field(..., description="Side of the order")
+    action: str = Field(..., description="Action of the order")
+    client_order_id: str | None = Field(None, description="The original client-specified order ID to be amended")
+    updated_client_order_id: str | None = Field(None, description="The new client-specified order ID after amendment")
+    yes_price: int | None = Field(None, description="Updated yes price for the order in cents")
+    no_price: int | None = Field(None, description="Updated no price for the order in cents")
+    yes_price_dollars: str | None = Field(None, description="Updated yes price for the order in fixed-point dollars. Exactly one of yes_price, no_price, yes_price_dollars, and no_price_dollars must be passed.")
+    no_price_dollars: str | None = Field(None, description="Updated no price for the order in fixed-point dollars. Exactly one of yes_price, no_price, yes_price_dollars, and no_price_dollars must be passed.")
+    count: int | None = Field(None, description="Updated quantity for the order (whole contracts only). If updating quantity, provide count or count_fp; if both provided they must match.")
+    count_fp: str | None = Field(None, description="String representation of the updated quantity for the order. If updating quantity, provide count or count_fp; if both provided they must match.")
 
 
 class DecreaseOrderRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    subaccount: int | None = None
-    reduce_by: int | None = None
-    reduce_by_fp: str | None = None
-    reduce_to: int | None = None
-    reduce_to_fp: str | None = None
+    subaccount: int | None = Field(None, description="Optional subaccount number to use for this decrease (0 for primary, 1-32 for subaccounts)")
+    reduce_by: int | None = Field(None, description="Number of contracts to reduce by (whole contracts only). Reduce-by may be provided via reduce_by or reduce_by_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
+    reduce_by_fp: str | None = Field(None, description="String representation of the number of contracts to reduce by. Reduce-by may be provided via reduce_by or reduce_by_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
+    reduce_to: int | None = Field(None, description="Number of contracts to reduce to (whole contracts only). Reduce-to may be provided via reduce_to or reduce_to_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
+    reduce_to_fp: str | None = Field(None, description="String representation of the number of contracts to reduce to. Reduce-to may be provided via reduce_to or reduce_to_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
 
 
 class LookupTickersForMarketInMultivariateEventCollectionRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    selected_markets: list[TickerPair]
+    selected_markets: list[TickerPair] = Field(..., description="List of selected markets that act as parameters to determine which market is produced.")
 
 
 class CreateMarketInMultivariateEventCollectionRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    selected_markets: list[TickerPair]
-    with_market_payload: bool | None = None
+    selected_markets: list[TickerPair] = Field(..., description="List of selected markets that act as parameters to determine which market is created.")
+    with_market_payload: bool | None = Field(None, description="Whether to include the market payload in the response.")
