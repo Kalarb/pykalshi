@@ -66,7 +66,7 @@ def create_http_client(
     max_retries: int = 4,
     base_retry_delay: float = 0.1,
 ) -> KalshiHttpClient:
-    """Drop-in replacement for the old KalshiHttpClient constructor."""
+    """Create an HTTP client from a key ID and private key file path."""
     return KalshiHttpClient(
         credentials=KalshiCredentials.from_key_file(key_id, private_key_path),
         config=ClientConfig(
@@ -85,7 +85,7 @@ def create_ws_client(
     environment: Environment = Environment.DEMO,
     on_message_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> KalshiWebSocketClient:
-    """Drop-in replacement for the old KalshiWebSocketClient constructor."""
+    """Create a WebSocket client from a key ID and private key file path."""
     return KalshiWebSocketClient(
         credentials=KalshiCredentials.from_key_file(key_id, private_key_path),
         config=ClientConfig(environment=environment),

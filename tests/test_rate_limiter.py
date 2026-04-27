@@ -75,3 +75,57 @@ class TestReadWriteTokenBucket:
         assert status["type"] == "ReadWriteTokenBucket"
         assert status["read_tokens"] == 10.0
         assert status["write_tokens"] == 5.0
+
+
+class TestConcurrentLoad:
+    """Gap 1: Verify rate limiter correctness under concurrent access."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_reads_consume_correct_tokens(self) -> None:
+        """5 concurrent read acquires should consume exactly 5 read tokens."""
+        import asyncio
+
+        bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
+        tasks = [bucket.acquire(global_cost=1.0, write_cost=0.0) for _ in range(5)]
+        await asyncio.gather(*tasks)
+        assert bucket.read_tokens == 5.0
+        assert bucket.write_tokens == 5.0  # writes untouched
+
+    @pytest.mark.asyncio
+    async def test_concurrent_writes_consume_correct_tokens(self) -> None:
+        """3 concurrent write acquires should consume exactly 3 write tokens."""
+        import asyncio
+
+        bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
+        tasks = [bucket.acquire(global_cost=1.0, write_cost=1.0) for _ in range(3)]
+        await asyncio.gather(*tasks)
+        assert bucket.write_tokens == 2.0
+        assert bucket.read_tokens == 10.0  # reads untouched
+
+    @pytest.mark.asyncio
+    async def test_concurrent_mixed_load(self) -> None:
+        """Mix of reads and writes under concurrent access."""
+        import asyncio
+
+        bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
+        read_tasks = [bucket.acquire(global_cost=1.0, write_cost=0.0) for _ in range(5)]
+        write_tasks = [bucket.acquire(global_cost=1.0, write_cost=1.0) for _ in range(3)]
+        await asyncio.gather(*read_tasks, *write_tasks)
+        assert bucket.read_tokens == 5.0
+        assert bucket.write_tokens == 2.0
+
+    @pytest.mark.asyncio
+    async def test_no_double_consumption(self) -> None:
+        """Exhaust all tokens concurrently; verify no token is consumed twice."""
+        import asyncio
+
+        bucket = ReadWriteTokenBucket(read_rate=5.0, write_rate=5.0)
+        # Try to consume 5 tokens concurrently (exactly capacity)
+        results = await asyncio.gather(
+            *[bucket.try_acquire(global_cost=1.0, write_cost=0.0) for _ in range(5)]
+        )
+        assert sum(results) == 5  # all should succeed
+        assert bucket.read_tokens == 0.0
+
+        # 6th attempt should fail (no tokens left)
+        assert await bucket.try_acquire(global_cost=1.0, write_cost=0.0) is False

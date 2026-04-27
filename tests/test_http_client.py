@@ -1,4 +1,4 @@
-"""Tests for pykalshi.http_client — all 33 API methods + core engine."""
+"""Tests for pykalshi.http_client — typed API methods + core engine."""
 
 import pytest
 
@@ -8,6 +8,11 @@ from pykalshi.http_client import KalshiHttpClient
 from pykalshi.exceptions import KalshiAPIError, KalshiRateLimitError
 from pykalshi.testing.mock_transport import make_mock_transport
 from pykalshi.testing.fixtures import mock_credentials, test_config as _test_config
+
+from .mock_data import (
+    MOCK_EVENT, MOCK_LIVE_DATA, MOCK_MARKET, MOCK_MILESTONE,
+    MOCK_ORDER, MOCK_SERIES, MOCK_TRADE,
+)
 
 
 @pytest.fixture
@@ -65,17 +70,38 @@ class TestCoreEngine:
 class TestExchange:
     @pytest.mark.asyncio
     async def test_get_exchange_status(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/exchange/status"): {"exchange_active": True}}
+        routes = {("GET", "/trade-api/v2/exchange/status"): {
+            "exchange_active": True, "trading_active": True
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_exchange_status()
-            assert result["exchange_active"] is True
+            assert result.exchange_active is True
+            assert result.trading_active is True
 
     @pytest.mark.asyncio
     async def test_get_exchange_schedule(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/exchange/schedule"): {"schedule": {"standard_hours": {}}}}
+        routes = {("GET", "/trade-api/v2/exchange/schedule"): {
+            "schedule": {"standard_hours": [], "maintenance_windows": []}
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_exchange_schedule()
-            assert "schedule" in result
+            assert result.schedule is not None
+
+    @pytest.mark.asyncio
+    async def test_get_exchange_announcements(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/exchange/announcements"): {"announcements": []}}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_exchange_announcements()
+            assert result.announcements == []
+
+    @pytest.mark.asyncio
+    async def test_get_user_data_timestamp(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/exchange/user_data_timestamp"): {
+            "as_of_time": "2024-01-01T00:00:00Z"
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_user_data_timestamp()
+            assert result.as_of_time == "2024-01-01T00:00:00Z"
 
 
 # =============================================================================
@@ -86,10 +112,22 @@ class TestExchange:
 class TestAccount:
     @pytest.mark.asyncio
     async def test_get_api_limits(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/account/limits"): {"read_limit": 20, "write_limit": 10}}
+        routes = {("GET", "/trade-api/v2/account/limits"): {
+            "usage_tier": "standard", "read_limit": 20, "write_limit": 10
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_api_limits()
-            assert result["read_limit"] == 20
+            assert result.read_limit == 20
+            assert result.write_limit == 10
+
+    @pytest.mark.asyncio
+    async def test_get_endpoint_costs(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/account/endpoint_costs"): {
+            "default_cost": 10, "endpoint_costs": []
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_endpoint_costs()
+            assert result.default_cost == 10
 
 
 # =============================================================================
@@ -100,67 +138,78 @@ class TestAccount:
 class TestOrders:
     @pytest.mark.asyncio
     async def test_get_orders(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/orders"): {"orders": [], "cursor": None}}
+        routes = {("GET", "/trade-api/v2/portfolio/orders"): {
+            "orders": [MOCK_ORDER], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_orders(status="resting", limit=10)
-            assert result["orders"] == []
+            assert len(result.orders) == 1
+            assert result.orders[0].order_id == "ord-123"
 
     @pytest.mark.asyncio
     async def test_get_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/orders"): {"order": {"order_id": "abc"}}}
+        routes = {("GET", "/trade-api/v2/portfolio/orders"): {"order": MOCK_ORDER}}
         async with _client(creds, cfg, routes) as c:
-            result = await c.get_order("abc")
-            assert result["order"]["order_id"] == "abc"
+            result = await c.get_order("ord-123")
+            assert result.order.order_id == "ord-123"
 
     @pytest.mark.asyncio
     async def test_create_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"order": {"order_id": "new123"}}}
+        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"order": MOCK_ORDER}}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_order(
                 ticker="KXBTC-100K", side="yes", action="buy",
                 count=10, yes_price=50,
             )
-            assert result["order"]["order_id"] == "new123"
+            assert result.order.order_id == "ord-123"
 
     @pytest.mark.asyncio
     async def test_cancel_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("DELETE", "/trade-api/v2/portfolio/orders"): {"order": {"status": "canceled"}}}
+        routes = {("DELETE", "/trade-api/v2/portfolio/orders"): {
+            "order": {**MOCK_ORDER, "status": "canceled"}, "reduced_by_fp": "10"
+        }}
         async with _client(creds, cfg, routes) as c:
-            result = await c.cancel_order("order-123")
-            assert result["order"]["status"] == "canceled"
+            result = await c.cancel_order("ord-123")
+            assert result.order.status.value == "canceled"
+            assert result.reduced_by_fp == "10"
 
     @pytest.mark.asyncio
     async def test_amend_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"order": {"order_id": "amended"}}}
+        routes = {("POST", "/trade-api/v2/portfolio/orders"): {
+            "old_order": MOCK_ORDER,
+            "order": {**MOCK_ORDER, "yes_price_dollars": "0.55"},
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.amend_order(
-                "order-1",
-                ticker="KXBTC", side="yes", action="buy",
+                "ord-123",
+                ticker="KXBTC-100K", side="yes", action="buy",
                 client_order_id="old", updated_client_order_id="new",
                 yes_price=55,
             )
-            assert result["order"]["order_id"] == "amended"
+            assert result.order.yes_price_dollars == "0.55"
 
     @pytest.mark.asyncio
     async def test_decrease_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"order": {"count": 5}}}
+        routes = {("POST", "/trade-api/v2/portfolio/orders"): {
+            "order": {**MOCK_ORDER, "remaining_count_fp": "5"}
+        }}
         async with _client(creds, cfg, routes) as c:
-            result = await c.decrease_order("order-1", reduce_to=5)
-            assert result["order"]["count"] == 5
+            result = await c.decrease_order("ord-123", reduce_to=5)
+            assert result.order.remaining_count_fp == "5"
 
     @pytest.mark.asyncio
     async def test_get_queue_positions(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/portfolio/orders"): {"queue_positions": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_queue_positions(event_ticker="EVT-1")
-            assert "queue_positions" in result
+            assert result.queue_positions == []
 
     @pytest.mark.asyncio
     async def test_get_order_queue_position(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/orders"): {"queue_position": 3}}
+        routes = {("GET", "/trade-api/v2/portfolio/orders"): {"queue_position_fp": "3"}}
         async with _client(creds, cfg, routes) as c:
-            result = await c.get_order_queue_position("order-1")
-            assert result["queue_position"] == 3
+            result = await c.get_order_queue_position("ord-123")
+            assert result.queue_position_fp == "3"
 
 
 # =============================================================================
@@ -174,35 +223,39 @@ class TestOrderGroups:
         routes = {("GET", "/trade-api/v2/portfolio/order_groups"): {"order_groups": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_order_groups()
-            assert result["order_groups"] == []
+            assert result.order_groups == []
 
     @pytest.mark.asyncio
     async def test_create_order_group(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/order_groups"): {"order_group": {"id": "grp-1"}}}
+        routes = {("POST", "/trade-api/v2/portfolio/order_groups"): {
+            "order_group_id": "grp-1"
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_order_group(contracts_limit=100)
-            assert result["order_group"]["id"] == "grp-1"
+            assert result.order_group_id == "grp-1"
 
     @pytest.mark.asyncio
     async def test_get_order_group(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/order_groups"): {"order_group": {"id": "grp-1"}}}
+        routes = {("GET", "/trade-api/v2/portfolio/order_groups"): {
+            "is_auto_cancel_enabled": True, "orders": ["ord-1"]
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_order_group("grp-1")
-            assert result["order_group"]["id"] == "grp-1"
+            assert result.is_auto_cancel_enabled is True
 
     @pytest.mark.asyncio
     async def test_delete_order_group(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("DELETE", "/trade-api/v2/portfolio/order_groups"): {"ok": True}}
+        routes = {("DELETE", "/trade-api/v2/portfolio/order_groups"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.delete_order_group("grp-1")
-            assert result["ok"] is True
+            assert result is not None
 
     @pytest.mark.asyncio
     async def test_reset_order_group(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("PUT", "/trade-api/v2/portfolio/order_groups"): {"ok": True}}
+        routes = {("PUT", "/trade-api/v2/portfolio/order_groups"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.reset_order_group("grp-1")
-            assert result["ok"] is True
+            assert result is not None
 
 
 # =============================================================================
@@ -213,31 +266,40 @@ class TestOrderGroups:
 class TestPortfolio:
     @pytest.mark.asyncio
     async def test_get_balance(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/balance"): {"balance": 10000}}
+        routes = {("GET", "/trade-api/v2/portfolio/balance"): {
+            "balance": 10000, "portfolio_value": 5000, "updated_ts": 1700000000
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_balance()
-            assert result["balance"] == 10000
+            assert result.balance == 10000
+            assert result.portfolio_value == 5000
 
     @pytest.mark.asyncio
     async def test_get_positions(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/positions"): {"market_positions": []}}
+        routes = {("GET", "/trade-api/v2/portfolio/positions"): {
+            "market_positions": [], "event_positions": []
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_positions(event_ticker="EVT-1")
-            assert result["market_positions"] == []
+            assert result.market_positions == []
 
     @pytest.mark.asyncio
     async def test_get_settlements(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/settlements"): {"settlements": []}}
+        routes = {("GET", "/trade-api/v2/portfolio/settlements"): {
+            "settlements": []
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_settlements()
-            assert result["settlements"] == []
+            assert result.settlements == []
 
     @pytest.mark.asyncio
     async def test_get_fills(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/portfolio/fills"): {"fills": []}}
+        routes = {("GET", "/trade-api/v2/portfolio/fills"): {
+            "fills": [], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_fills()
-            assert result["fills"] == []
+            assert result.fills == []
 
 
 # =============================================================================
@@ -248,31 +310,35 @@ class TestPortfolio:
 class TestMarkets:
     @pytest.mark.asyncio
     async def test_get_market(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/markets/KXBTC"): {"market": {"ticker": "KXBTC"}}}
+        routes = {("GET", "/trade-api/v2/markets"): {"market": MOCK_MARKET}}
         async with _client(creds, cfg, routes) as c:
-            result = await c.get_market("KXBTC")
-            assert result["market"]["ticker"] == "KXBTC"
+            result = await c.get_market("KXBTC-100K")
+            assert result.market.ticker == "KXBTC-100K"
 
     @pytest.mark.asyncio
     async def test_get_markets(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/markets"): {"markets": [], "cursor": None}}
+        routes = {("GET", "/trade-api/v2/markets"): {"markets": [], "cursor": ""}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_markets(status="open", limit=50)
-            assert result["markets"] == []
+            assert result.markets == []
 
     @pytest.mark.asyncio
     async def test_get_market_orderbook(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/markets/KXBTC"): {"orderbook": {"yes": [], "no": []}}}
+        routes = {("GET", "/trade-api/v2/markets"): {
+            "orderbook_fp": {"yes_dollars": [], "no_dollars": []}
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_market_orderbook("KXBTC")
-            assert "orderbook" in result
+            assert result.orderbook_fp is not None
 
     @pytest.mark.asyncio
     async def test_get_trades(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/markets/trades"): {"trades": [], "cursor": None}}
+        routes = {("GET", "/trade-api/v2/markets/trades"): {
+            "trades": [MOCK_TRADE], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_trades(ticker="KXBTC", limit=10)
-            assert result["trades"] == []
+            assert len(result.trades) == 1
 
 
 # =============================================================================
@@ -283,31 +349,39 @@ class TestMarkets:
 class TestEvents:
     @pytest.mark.asyncio
     async def test_get_event(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/events/EVT-1"): {"event": {"event_ticker": "EVT-1"}}}
+        routes = {("GET", "/trade-api/v2/events"): {
+            "event": MOCK_EVENT, "markets": []
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_event("EVT-1", with_nested_markets=True)
-            assert result["event"]["event_ticker"] == "EVT-1"
+            assert result.event.event_ticker == "EVT-1"
 
     @pytest.mark.asyncio
     async def test_get_events(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/events"): {"events": [], "cursor": None}}
+        routes = {("GET", "/trade-api/v2/events"): {"events": [], "cursor": ""}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_events(status="open", limit=10)
-            assert result["events"] == []
+            assert result.events == []
 
     @pytest.mark.asyncio
     async def test_get_multivariate_events(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/events/multivariate"): {"events": []}}
+        routes = {("GET", "/trade-api/v2/events/multivariate"): {
+            "events": [], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_multivariate_events(limit=5)
-            assert result["events"] == []
+            assert result.events == []
 
     @pytest.mark.asyncio
     async def test_get_event_metadata(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/events/EVT-1"): {"metadata": {"category": "Crypto"}}}
+        routes = {("GET", "/trade-api/v2/events/EVT-1"): {
+            "image_url": "https://example.com/img.png",
+            "market_details": [],
+            "settlement_sources": [],
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_event_metadata("EVT-1")
-            assert result["metadata"]["category"] == "Crypto"
+            assert result.image_url == "https://example.com/img.png"
 
 
 # =============================================================================
@@ -318,17 +392,17 @@ class TestEvents:
 class TestSeries:
     @pytest.mark.asyncio
     async def test_get_series(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/series/KXBTC"): {"series": {"ticker": "KXBTC"}}}
+        routes = {("GET", "/trade-api/v2/series"): {"series": MOCK_SERIES}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_series("KXBTC", include_volume=True)
-            assert result["series"]["ticker"] == "KXBTC"
+            assert result.series.ticker == "KXBTC"
 
     @pytest.mark.asyncio
     async def test_get_series_list(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/series"): {"series": [], "cursor": None}}
+        routes = {("GET", "/trade-api/v2/series"): {"series": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_series_list(category="Crypto", limit=10)
-            assert result["series"] == []
+            assert result.series == []
 
 
 # =============================================================================
@@ -344,16 +418,16 @@ class TestSearch:
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_tags_by_categories()
-            assert "Crypto" in result["tags_by_categories"]
+            assert "Crypto" in result.tags_by_categories
 
     @pytest.mark.asyncio
     async def test_get_filters_by_sport(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/search/filters_by_sport"): {
-            "filters_by_sports": {"NFL": {"competitions": ["NFC", "AFC"]}}
+            "filters_by_sports": {}, "sport_ordering": ["NFL"]
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_filters_by_sport()
-            assert "NFL" in result["filters_by_sports"]
+            assert result.sport_ordering == ["NFL"]
 
 
 # =============================================================================
@@ -363,188 +437,27 @@ class TestSearch:
 
 class TestBatchOperations:
     @pytest.mark.asyncio
-    async def test_batch_create_empty(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+    async def test_batch_create_orders(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("POST", "/trade-api/v2/portfolio/orders"): {"orders": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.batch_create_orders([])
-            assert result == {"orders": []}
+            assert result.orders == []
 
     @pytest.mark.asyncio
-    async def test_batch_cancel_empty(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+    async def test_batch_cancel_orders(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("DELETE", "/trade-api/v2/portfolio/orders"): {"orders": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.batch_cancel_orders([])
-            assert result == {"orders": []}
-
-    @pytest.mark.asyncio
-    async def test_batch_create_single_chunk(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {
-            "orders": [{"order_id": "o1"}, {"order_id": "o2"}]
-        }}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.batch_create_orders([
-                {"ticker": "T1", "side": "yes", "action": "buy", "count": 1},
-                {"ticker": "T2", "side": "no", "action": "sell", "count": 2},
-            ])
-            assert len(result["orders"]) == 2
-
-    @pytest.mark.asyncio
-    async def test_batch_cancel_single_chunk(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("DELETE", "/trade-api/v2/portfolio/orders"): {
-            "orders": [{"order_id": "o1", "status": "canceled"}]
-        }}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.batch_cancel_orders(["o1", "o2", "o3"])
-            assert len(result["orders"]) == 1
-
-    @pytest.mark.asyncio
-    async def test_batch_create_strips_none(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"orders": [{"order_id": "o1"}]}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.batch_create_orders([
-                {"ticker": "T1", "side": "yes", "action": "buy", "count": 1, "expiration_ts": None},
-            ])
-            assert len(result["orders"]) == 1
-
-    @pytest.mark.asyncio
-    async def test_batch_create_large(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        """25 orders sent in a single batch call (thin wrapper, no chunking)."""
-        expected = [{"order_id": f"o{i}"} for i in range(25)]
-        routes = {("POST", "/trade-api/v2/portfolio/orders"): {"orders": expected}}
-        orders_list = [
-            {"ticker": f"T{i}", "side": "yes", "action": "buy", "count": 1}
-            for i in range(25)
-        ]
-        async with _client(creds, cfg, routes) as c:
-            result = await c.batch_create_orders(orders_list)
-            assert len(result["orders"]) == 25
+            assert result.orders == []
 
     @pytest.mark.asyncio
     async def test_batch_create_propagates_error(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("POST", "/trade-api/v2/portfolio/orders"): 500}
         async with _client(creds, cfg, routes) as c:
-            with pytest.raises(Exception):
+            with pytest.raises(KalshiAPIError):
                 await c.batch_create_orders([
                     {"ticker": "T1", "side": "yes", "action": "buy", "count": 1},
                 ])
-
-
-# =============================================================================
-# Exchange (additional)
-# =============================================================================
-
-
-class TestExchangeAdditional:
-    @pytest.mark.asyncio
-    async def test_get_exchange_announcements(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/exchange/announcements"): {"announcements": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_exchange_announcements()
-            assert result["announcements"] == []
-
-    @pytest.mark.asyncio
-    async def test_get_user_data_timestamp(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/exchange/user_data_timestamp"): {"timestamp": 123456}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_user_data_timestamp()
-            assert result["timestamp"] == 123456
-
-
-# =============================================================================
-# Account (additional)
-# =============================================================================
-
-
-class TestAccountAdditional:
-    @pytest.mark.asyncio
-    async def test_get_endpoint_costs(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/account/endpoint_costs"): {"endpoints": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_endpoint_costs()
-            assert "endpoints" in result
-
-
-# =============================================================================
-# Order Groups (additional)
-# =============================================================================
-
-
-class TestOrderGroupsAdditional:
-    @pytest.mark.asyncio
-    async def test_trigger_order_group(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("PUT", "/trade-api/v2/portfolio/order_groups"): {"ok": True}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.trigger_order_group("grp-1")
-            assert result["ok"] is True
-
-    @pytest.mark.asyncio
-    async def test_update_order_group_limit(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("PUT", "/trade-api/v2/portfolio/order_groups"): {"ok": True}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.update_order_group_limit("grp-1", limit=200)
-            assert result["ok"] is True
-
-
-# =============================================================================
-# Markets (additional)
-# =============================================================================
-
-
-class TestMarketsAdditional:
-    @pytest.mark.asyncio
-    async def test_get_market_orderbooks(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/markets/orderbooks"): {"orderbooks": {}}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_market_orderbooks(["KXBTC", "KXETH"])
-            assert "orderbooks" in result
-
-    @pytest.mark.asyncio
-    async def test_get_market_candlesticks(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/series"): {"candlesticks": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_market_candlesticks(
-                "KXBTC", "KXBTC-100K", start_ts=100, end_ts=200, period_interval=60
-            )
-            assert "candlesticks" in result
-
-
-# =============================================================================
-# Events (additional)
-# =============================================================================
-
-
-class TestEventsAdditional:
-    @pytest.mark.asyncio
-    async def test_get_event_candlesticks(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/series"): {"candlesticks": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_event_candlesticks(
-                "KXBTC", "EVT-1", start_ts=100, end_ts=200, period_interval=60
-            )
-            assert "candlesticks" in result
-
-    @pytest.mark.asyncio
-    async def test_get_forecast_percentile_history(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/series"): {"history": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_forecast_percentile_history(
-                "KXBTC", "EVT-1", percentiles=[25, 50, 75], start_ts=100, end_ts=200, period_interval=60
-            )
-            assert "history" in result
-
-
-# =============================================================================
-# Series (additional)
-# =============================================================================
-
-
-class TestSeriesAdditional:
-    @pytest.mark.asyncio
-    async def test_get_fee_changes(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/series/fee_changes"): {"fee_changes": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_fee_changes(series_ticker="KXBTC")
-            assert "fee_changes" in result
 
 
 # =============================================================================
@@ -555,54 +468,50 @@ class TestSeriesAdditional:
 class TestHistorical:
     @pytest.mark.asyncio
     async def test_get_historical_cutoff(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/cutoff"): {"cutoff_ts": 1000}}
+        routes = {("GET", "/trade-api/v2/historical/cutoff"): {
+            "market_settled_ts": "2024-01-01T00:00:00Z",
+            "trades_created_ts": "2024-01-01T00:00:00Z",
+            "orders_updated_ts": "2024-01-01T00:00:00Z",
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_historical_cutoff()
-            assert "cutoff_ts" in result
+            assert result.market_settled_ts == "2024-01-01T00:00:00Z"
 
     @pytest.mark.asyncio
     async def test_get_historical_markets(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/markets"): {"markets": []}}
+        routes = {("GET", "/trade-api/v2/historical/markets"): {
+            "markets": [], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_historical_markets(limit=5)
-            assert result["markets"] == []
-
-    @pytest.mark.asyncio
-    async def test_get_historical_market(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/markets"): {"market": {"ticker": "OLD-1"}}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_historical_market("OLD-1")
-            assert result["market"]["ticker"] == "OLD-1"
-
-    @pytest.mark.asyncio
-    async def test_get_historical_market_candlesticks(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/markets"): {"candlesticks": []}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_historical_market_candlesticks(
-                "OLD-1", start_ts=100, end_ts=200, period_interval=60
-            )
-            assert "candlesticks" in result
+            assert result.markets == []
 
     @pytest.mark.asyncio
     async def test_get_historical_fills(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/fills"): {"fills": []}}
+        routes = {("GET", "/trade-api/v2/historical/fills"): {
+            "fills": [], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_historical_fills(limit=10)
-            assert result["fills"] == []
+            assert result.fills == []
 
     @pytest.mark.asyncio
     async def test_get_historical_orders(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/orders"): {"orders": []}}
+        routes = {("GET", "/trade-api/v2/historical/orders"): {
+            "orders": [], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_historical_orders(limit=10)
-            assert result["orders"] == []
+            assert result.orders == []
 
     @pytest.mark.asyncio
     async def test_get_historical_trades(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/historical/trades"): {"trades": []}}
+        routes = {("GET", "/trade-api/v2/historical/trades"): {
+            "trades": [], "cursor": ""
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_historical_trades(limit=10)
-            assert result["trades"] == []
+            assert result.trades == []
 
 
 # =============================================================================
@@ -616,28 +525,30 @@ class TestApiKeys:
         routes = {("GET", "/trade-api/v2/api_keys"): {"api_keys": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_api_keys()
-            assert result["api_keys"] == []
+            assert result.api_keys == []
 
     @pytest.mark.asyncio
     async def test_create_api_key(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/api_keys"): {"api_key": "new-key"}}
+        routes = {("POST", "/trade-api/v2/api_keys"): {"api_key_id": "new-key"}}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_api_key(public_key="ssh-rsa AAAA...", name="test")
-            assert result["api_key"] == "new-key"
+            assert result.api_key_id == "new-key"
 
     @pytest.mark.asyncio
     async def test_generate_api_key(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/api_keys"): {"api_key": "gen-key"}}
+        routes = {("POST", "/trade-api/v2/api_keys"): {
+            "api_key_id": "gen-key", "private_key": "-----BEGIN RSA PRIVATE KEY-----\n..."
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.generate_api_key(name="test-key")
-            assert result["api_key"] == "gen-key"
+            assert result.api_key_id == "gen-key"
 
     @pytest.mark.asyncio
     async def test_delete_api_key(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("DELETE", "/trade-api/v2/api_keys"): {"ok": True}}
+        routes = {("DELETE", "/trade-api/v2/api_keys"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.delete_api_key("key-to-delete")
-            assert result["ok"] is True
+            assert result is not None
 
 
 # =============================================================================
@@ -648,73 +559,47 @@ class TestApiKeys:
 class TestCommunications:
     @pytest.mark.asyncio
     async def test_get_communications_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/communications/id"): {"id": "comm-123"}}
+        routes = {("GET", "/trade-api/v2/communications/id"): {
+            "communications_id": "comm-123"
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_communications_id()
-            assert result["id"] == "comm-123"
+            assert result.communications_id == "comm-123"
 
     @pytest.mark.asyncio
     async def test_get_rfqs(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/communications/rfqs"): {"rfqs": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_rfqs(limit=5)
-            assert result["rfqs"] == []
+            assert result.rfqs == []
 
     @pytest.mark.asyncio
     async def test_create_rfq(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/communications/rfqs"): {"rfq": {"id": "rfq-1"}}}
+        routes = {("POST", "/trade-api/v2/communications/rfqs"): {"id": "rfq-1"}}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_rfq(market_ticker="KXBTC", side="yes", size=100)
-            assert result["rfq"]["id"] == "rfq-1"
-
-    @pytest.mark.asyncio
-    async def test_get_rfq(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/communications/rfqs"): {"rfq": {"id": "rfq-1"}}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_rfq("rfq-1")
-            assert result["rfq"]["id"] == "rfq-1"
+            assert result.id == "rfq-1"
 
     @pytest.mark.asyncio
     async def test_delete_rfq(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("DELETE", "/trade-api/v2/communications/rfqs"): {"ok": True}}
+        routes = {("DELETE", "/trade-api/v2/communications/rfqs"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.delete_rfq("rfq-1")
-            assert result["ok"] is True
+            assert result is not None
 
     @pytest.mark.asyncio
     async def test_get_quotes(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/communications/quotes"): {"quotes": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_quotes(limit=5)
-            assert result["quotes"] == []
+            assert result.quotes == []
 
     @pytest.mark.asyncio
     async def test_create_quote(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/communications/quotes"): {"quote": {"id": "q-1"}}}
+        routes = {("POST", "/trade-api/v2/communications/quotes"): {"id": "q-1"}}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_quote(rfq_id="rfq-1", price="0.50", size=50)
-            assert result["quote"]["id"] == "q-1"
-
-    @pytest.mark.asyncio
-    async def test_get_quote(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/communications/quotes"): {"quote": {"id": "q-1"}}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.get_quote("q-1")
-            assert result["quote"]["id"] == "q-1"
-
-    @pytest.mark.asyncio
-    async def test_delete_quote(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("DELETE", "/trade-api/v2/communications/quotes"): {"ok": True}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.delete_quote("q-1")
-            assert result["ok"] is True
-
-    @pytest.mark.asyncio
-    async def test_accept_quote(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("PUT", "/trade-api/v2/communications/quotes"): {"ok": True}}
-        async with _client(creds, cfg, routes) as c:
-            result = await c.accept_quote("q-1")
-            assert result["ok"] is True
+            assert result.id == "q-1"
 
 
 # =============================================================================
@@ -725,24 +610,24 @@ class TestCommunications:
 class TestLiveData:
     @pytest.mark.asyncio
     async def test_get_live_data(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/live_data/milestone"): {"data": {}}}
+        routes = {("GET", "/trade-api/v2/live_data"): {"live_data": MOCK_LIVE_DATA}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_live_data("ms-1")
-            assert "data" in result
+            assert result.live_data is not None
 
     @pytest.mark.asyncio
     async def test_get_live_data_batch(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/live_data/batch"): {"results": []}}
+        routes = {("GET", "/trade-api/v2/live_data/batch"): {"live_datas": []}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_live_data_batch(["ms-1", "ms-2"])
-            assert "results" in result
+            assert result.live_datas == []
 
     @pytest.mark.asyncio
     async def test_get_game_stats(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/live_data/milestone"): {"stats": {}}}
+        routes = {("GET", "/trade-api/v2/live_data/milestone"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_game_stats("ms-1")
-            assert "stats" in result
+            assert result.pbp is None
 
 
 # =============================================================================
@@ -753,17 +638,19 @@ class TestLiveData:
 class TestMilestones:
     @pytest.mark.asyncio
     async def test_get_milestone(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/milestones"): {"milestone": {"id": "ms-1"}}}
+        routes = {("GET", "/trade-api/v2/milestones"): {
+            "milestone": MOCK_MILESTONE
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_milestone("ms-1")
-            assert result["milestone"]["id"] == "ms-1"
+            assert result.milestone.id == "ms-1"
 
     @pytest.mark.asyncio
     async def test_get_milestones(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/milestones"): {"milestones": []}}
         async with _client(creds, cfg, routes) as c:
-            result = await c.get_milestones(limit=10, category="Sports")
-            assert result["milestones"] == []
+            result = await c.get_milestones(limit=10)
+            assert result.milestones == []
 
 
 # =============================================================================
@@ -774,17 +661,17 @@ class TestMilestones:
 class TestStructuredTargets:
     @pytest.mark.asyncio
     async def test_get_structured_targets(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/structured_targets"): {"targets": []}}
+        routes = {("GET", "/trade-api/v2/structured_targets"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_structured_targets(competition="NFL")
-            assert result["targets"] == []
+            assert result.structured_targets is None
 
     @pytest.mark.asyncio
     async def test_get_structured_target(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/structured_targets"): {"target": {"id": "st-1"}}}
+        routes = {("GET", "/trade-api/v2/structured_targets"): {}}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_structured_target("st-1")
-            assert result["target"]["id"] == "st-1"
+            assert result.structured_target is None
 
 
 # =============================================================================
@@ -795,7 +682,85 @@ class TestStructuredTargets:
 class TestIncentivePrograms:
     @pytest.mark.asyncio
     async def test_get_incentive_programs(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("GET", "/trade-api/v2/incentive_programs"): {"programs": []}}
+        routes = {("GET", "/trade-api/v2/incentive_programs"): {
+            "incentive_programs": []
+        }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_incentive_programs(status="active")
-            assert result["programs"] == []
+            assert result.incentive_programs == []
+
+
+# =============================================================================
+# Model Dump (raw dict access still works)
+# =============================================================================
+
+
+class TestModelDump:
+    @pytest.mark.asyncio
+    async def test_model_dump_returns_dict(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/exchange/status"): {
+            "exchange_active": True, "trading_active": False
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_exchange_status()
+            d = result.model_dump()
+            assert isinstance(d, dict)
+            assert d["exchange_active"] is True
+
+
+# =============================================================================
+# Gap 3: Empty path parameter validation
+# =============================================================================
+
+
+class TestEmptyPathParamValidation:
+    @pytest.mark.asyncio
+    async def test_get_order_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_id"):
+                await c.get_order("")
+
+    @pytest.mark.asyncio
+    async def test_cancel_order_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_id"):
+                await c.cancel_order("")
+
+    @pytest.mark.asyncio
+    async def test_amend_order_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_id"):
+                await c.amend_order(
+                    "", ticker="T", side="yes", action="buy",
+                    client_order_id="a", updated_client_order_id="b",
+                )
+
+    @pytest.mark.asyncio
+    async def test_decrease_order_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_id"):
+                await c.decrease_order("", reduce_to=0)
+
+    @pytest.mark.asyncio
+    async def test_get_order_queue_position_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_id"):
+                await c.get_order_queue_position("")
+
+    @pytest.mark.asyncio
+    async def test_delete_order_group_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_group_id"):
+                await c.delete_order_group("")
+
+    @pytest.mark.asyncio
+    async def test_get_order_group_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_group_id"):
+                await c.get_order_group("")
+
+    @pytest.mark.asyncio
+    async def test_reset_order_group_empty_id(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        async with _client(creds, cfg, {}) as c:
+            with pytest.raises(ValueError, match="order_group_id"):
+                await c.reset_order_group("")

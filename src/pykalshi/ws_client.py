@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable, Dict, Optional
+from typing import Awaitable, Callable, Optional
 
 import orjson
 import websockets
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Maps message type -> expected channel name.
 # None means the message can arrive on multiple channels (skip validation).
-MSG_TYPE_TO_CHANNEL: Dict[str, str | None] = {
+MSG_TYPE_TO_CHANNEL: dict[str, str | None] = {
     # Orderbook
     "orderbook_snapshot": "orderbook_delta",
     "orderbook_delta": "orderbook_delta",
@@ -117,7 +117,11 @@ class KalshiWebSocketClient:
             logger.info("WebSocket connection closed.")
 
     async def listener_loop(self) -> None:
-        """Read messages forever with auto-reconnect."""
+        """Read messages forever with auto-reconnect.
+
+        Raises KalshiSequenceGapError on sequence gaps — consumers should
+        catch this and call resubscribe_channel() to recover.
+        """
         retry_delay = 1
         while self._listening:
             try:
@@ -125,11 +129,11 @@ class KalshiWebSocketClient:
                     retry_delay = 1
                     await self._handle_incoming_message(message)
                 raise websockets.ConnectionClosed(1000, "Loop ended unexpectedly")
-            except Exception as e:
+            except (websockets.ConnectionClosed, OSError, asyncio.TimeoutError) as e:
                 if not self._listening:
                     break
                 logger.error("Socket error: %s", e)
-                await self._handle_connection_loss()
+                self._handle_connection_loss()
                 logger.info("Reconnecting in %d seconds...", retry_delay)
                 await asyncio.sleep(retry_delay)
                 with self._tracer.start_as_current_span("ws.reconnect") as span:
@@ -308,9 +312,29 @@ class KalshiWebSocketClient:
             raise ValueError(f"Not subscribed to {channel}")
         await self._send_update_sub(chan_state.sid, market_tickers, "get_snapshot")
 
+    async def resubscribe_channel(self, channel_name: str) -> None:
+        """Unsubscribe and resubscribe a channel to recover from sequence gaps.
+
+        Typical usage after catching KalshiSequenceGapError:
+            try:
+                await ws_client.listener_loop()
+            except KalshiSequenceGapError as e:
+                await ws_client.resubscribe_channel(e.channel)
+        """
+        chan_state = self.channels.get(channel_name)
+        if chan_state is None:
+            return
+        if chan_state.sid is not None:
+            await self._send_unsubscribe(chan_state.sid)
+            self._sid_map.pop(chan_state.sid, None)
+        chan_state.sid = None
+        chan_state.seq = 0
+        if chan_state.markets:
+            await self._send_subscribe(chan_state.name, list(chan_state.markets))
+
     # --- Internal helpers ---
 
-    async def _handle_connection_loss(self) -> None:
+    def _handle_connection_loss(self) -> None:
         self._sid_map.clear()
         self._pending_init_subs.clear()
         for state in self.channels.values():

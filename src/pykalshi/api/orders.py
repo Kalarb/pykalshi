@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ._utils import PORTFOLIO_URL, strip_none
+from ._utils import PORTFOLIO_URL, strip_none, validate_path_param
 
 if TYPE_CHECKING:
     from pykalshi.http_client import KalshiHttpClient
@@ -45,11 +45,12 @@ Data](https://kalshi.com/docs/getting_started/historical_data) for details.
 
 async def get_order(client: KalshiHttpClient, order_id: str) -> dict[str, Any]:
     """Get Order.
-    
+
     GET /trade-api/v2/portfolio/orders/{order_id}
-    
+
     Endpoint for getting a single order.
     """
+    validate_path_param("order_id", order_id)
     return await client.get(f"{PORTFOLIO_URL}/orders/{order_id}")
 
 
@@ -119,6 +120,7 @@ partially filled already. Instead, the DeleteOrder endpoint reduce the order com
 essentially zeroing the remaining resting contracts on it. The zeroed order is returned
 on the response payload as a form of validation for the client.
     """
+    validate_path_param("order_id", order_id)
     return await client.delete(f"{PORTFOLIO_URL}/orders/{order_id}", body={})
 
 
@@ -145,6 +147,7 @@ async def amend_order(
     Endpoint for amending the max number of fillable contracts and/or price in an existing
 order. Max fillable contracts is `remaining_count` + `fill_count`.
     """
+    validate_path_param("order_id", order_id)
     payload = strip_none({
         "ticker": ticker,
         "side": side,
@@ -178,6 +181,7 @@ async def decrease_order(
 kind of edit available on order quantity. Cancelling an order is equivalent to
 decreasing an order amount to zero.
     """
+    validate_path_param("order_id", order_id)
     payload = strip_none({
         "reduce_by": reduce_by,
         "reduce_to": reduce_to,
@@ -219,6 +223,7 @@ async def get_order_queue_position(
 amount of orders that need to be matched before this order receives a partial or full
 match. Queue position is determined using a price-time priority.
     """
+    validate_path_param("order_id", order_id)
     return await client.get(f"{PORTFOLIO_URL}/orders/{order_id}/queue_position")
 
 

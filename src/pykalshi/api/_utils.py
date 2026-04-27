@@ -10,6 +10,12 @@ def strip_none(d: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
 
 
+def validate_path_param(name: str, value: str) -> None:
+    """Validate that a path parameter is non-empty."""
+    if not value:
+        raise ValueError(f"Path parameter '{name}' must not be empty")
+
+
 # Kalshi API base paths
 EXCHANGE_URL = "/trade-api/v2/exchange"
 MARKETS_URL = "/trade-api/v2/markets"

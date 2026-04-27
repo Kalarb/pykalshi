@@ -1,8 +1,11 @@
 """Tests for pykalshi.ws_client — message routing and channel mapping."""
 
+import asyncio
+
 import orjson
 import pytest
 
+from pykalshi.exceptions import KalshiSequenceGapError
 from pykalshi.ws_client import MSG_TYPE_TO_CHANNEL, ChannelState, KalshiWebSocketClient
 from pykalshi.testing.fixtures import mock_credentials, test_config as _test_config
 
@@ -246,6 +249,153 @@ class TestMessageRouting:
         client.on_message_callback = callback
         raw = orjson.dumps({"type": "some_future_type", "sid": 1, "msg": {}})
         await client._handle_incoming_message(raw)
-        import asyncio
         await asyncio.sleep(0.01)
         assert len(received) == 1
+
+
+# =============================================================================
+# Gap 2: Sequence gap propagation + resubscribe_channel
+# =============================================================================
+
+
+class TestSequenceGapPropagation:
+    """Verify that sequence gaps raise KalshiSequenceGapError to the caller."""
+
+    def _make_client(self) -> KalshiWebSocketClient:
+        creds = mock_credentials()
+        cfg = _test_config()
+        return KalshiWebSocketClient(creds, cfg)
+
+    def _setup_channel(self, client: KalshiWebSocketClient, channel: str, sid: int, seq: int = 0) -> None:
+        state = ChannelState(name=channel)
+        state.sid = sid
+        state.seq = seq
+        client.channels[channel] = state
+        client._sid_map[sid] = state
+
+    @pytest.mark.asyncio
+    async def test_data_message_gap_raises(self) -> None:
+        """A sequence gap in a data message should raise KalshiSequenceGapError."""
+        client = self._make_client()
+        self._setup_channel(client, "ticker", sid=1, seq=5)
+        msg = orjson.dumps({"type": "ticker", "sid": 1, "seq": 8, "msg": {}})
+        with pytest.raises(KalshiSequenceGapError) as exc:
+            await client._handle_incoming_message(msg)
+        assert exc.value.channel == "ticker"
+        assert exc.value.expected == 6
+        assert exc.value.got == 8
+
+    @pytest.mark.asyncio
+    async def test_ok_message_gap_raises(self) -> None:
+        """A sequence gap in an 'ok' response should raise KalshiSequenceGapError."""
+        client = self._make_client()
+        self._setup_channel(client, "ticker", sid=1, seq=3)
+        msg = orjson.dumps({"type": "ok", "sid": 1, "seq": 10})
+        with pytest.raises(KalshiSequenceGapError) as exc:
+            await client._handle_incoming_message(msg)
+        assert exc.value.expected == 4
+        assert exc.value.got == 10
+
+    @pytest.mark.asyncio
+    async def test_consecutive_seq_no_error(self) -> None:
+        """No error when sequence increments by exactly 1."""
+        client = self._make_client()
+        self._setup_channel(client, "ticker", sid=1, seq=5)
+        msg = orjson.dumps({"type": "ticker", "sid": 1, "seq": 6, "msg": {}})
+        await client._handle_incoming_message(msg)  # should not raise
+        assert client._sid_map[1].seq == 6
+
+    @pytest.mark.asyncio
+    async def test_first_message_no_gap_check(self) -> None:
+        """When seq is 0 (no messages yet), any seq is accepted."""
+        client = self._make_client()
+        self._setup_channel(client, "ticker", sid=1, seq=0)
+        msg = orjson.dumps({"type": "ticker", "sid": 1, "seq": 42, "msg": {}})
+        await client._handle_incoming_message(msg)  # should not raise
+        assert client._sid_map[1].seq == 42
+
+
+class TestResubscribeChannel:
+    """Verify the resubscribe_channel recovery method."""
+
+    def _make_client(self) -> KalshiWebSocketClient:
+        creds = mock_credentials()
+        cfg = _test_config()
+        return KalshiWebSocketClient(creds, cfg)
+
+    def _setup_channel(self, client: KalshiWebSocketClient, channel: str, sid: int) -> None:
+        state = ChannelState(name=channel, markets={"TICKER-1", "TICKER-2"})
+        state.sid = sid
+        state.seq = 10
+        client.channels[channel] = state
+        client._sid_map[sid] = state
+
+    @pytest.mark.asyncio
+    async def test_resubscribe_resets_state(self) -> None:
+        """resubscribe_channel should reset sid and seq."""
+        client = self._make_client()
+        self._setup_channel(client, "ticker", sid=5)
+        # Simulate ws being None (no actual connection in unit test)
+        client.ws = None
+        await client.resubscribe_channel("ticker")
+        state = client.channels["ticker"]
+        assert state.sid is None
+        assert state.seq == 0
+        # Markets should be preserved for re-subscription
+        assert state.markets == {"TICKER-1", "TICKER-2"}
+
+    @pytest.mark.asyncio
+    async def test_resubscribe_removes_from_sid_map(self) -> None:
+        client = self._make_client()
+        self._setup_channel(client, "ticker", sid=5)
+        client.ws = None
+        await client.resubscribe_channel("ticker")
+        assert 5 not in client._sid_map
+
+    @pytest.mark.asyncio
+    async def test_resubscribe_unknown_channel_is_noop(self) -> None:
+        client = self._make_client()
+        client.ws = None
+        await client.resubscribe_channel("nonexistent")  # should not raise
+
+
+# =============================================================================
+# Gap 4: Callback exception handling
+# =============================================================================
+
+
+class TestCallbackExceptionHandling:
+    """Verify that exceptions in on_message_callback are logged, not propagated."""
+
+    def _make_client(self) -> KalshiWebSocketClient:
+        creds = mock_credentials()
+        cfg = _test_config()
+        return KalshiWebSocketClient(creds, cfg)
+
+    @pytest.mark.asyncio
+    async def test_callback_exception_does_not_propagate(self) -> None:
+        """If callback raises, _handle_incoming_message should still complete."""
+        async def bad_callback(msg: str) -> None:
+            raise RuntimeError("callback boom")
+
+        client = self._make_client()
+        client.on_message_callback = bad_callback
+        raw = orjson.dumps({"type": "some_type", "sid": 1, "msg": {}})
+        # Should not raise
+        await client._handle_incoming_message(raw)
+        # Give the create_task a chance to run and fire done_callback
+        await asyncio.sleep(0.05)
+
+    @pytest.mark.asyncio
+    async def test_callback_exception_logged(self, caplog: pytest.LogCaptureFixture) -> None:
+        """The callback exception should be logged via _log_callback_exception."""
+        async def bad_callback(msg: str) -> None:
+            raise ValueError("test error in callback")
+
+        client = self._make_client()
+        client.on_message_callback = bad_callback
+        raw = orjson.dumps({"type": "some_type", "sid": 1, "msg": {}})
+        await client._handle_incoming_message(raw)
+        await asyncio.sleep(0.05)
+        assert any("callback failed" in r.message.lower() or "test error" in r.message.lower()
+                    for r in caplog.records)
