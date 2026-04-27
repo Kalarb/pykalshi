@@ -37,25 +37,30 @@ creds = KalshiCredentials.from_key_file("your-key-id", "~/.kalshi/private.pem")
 config = ClientConfig(environment=Environment.DEMO)
 
 async with KalshiHttpClient(creds, config) as client:
-    # Markets
-    markets = await client.get_markets(status="open", limit=10)
+    # Markets — returns typed GetMarketsResponse
+    resp = await client.get_markets(status="open", limit=10)
+    for market in resp.markets:
+        print(f"{market.ticker}: {market.yes_bid_dollars}/{market.yes_ask_dollars}")
 
-    # Place an order
-    order = await client.create_order(
+    # Place an order — returns typed CreateOrderResponse
+    result = await client.create_order(
         ticker="KXBTC-100K",
         side="yes",
         action="buy",
         count=10,
         yes_price=50,
     )
+    print(result.order.order_id)
 
     # Cancel it
-    await client.cancel_order(order["order"]["order_id"])
+    await client.cancel_order(result.order.order_id)
+
+    # Raw dict access is still available via .model_dump()
+    raw = result.model_dump()
+    print(raw["order"]["order_id"])
 ```
 
-#### Backward-Compatible Constructors
-
-Drop-in replacements for the old `KalshiHttpClient(key_id, path, env)` pattern:
+#### Convenience Constructors
 
 ```python
 from pykalshi import create_http_client, create_ws_client, Environment
@@ -77,28 +82,36 @@ async def on_message(msg: str):
 ws = KalshiWebSocketClient(creds, ClientConfig(), on_message_callback=on_message)
 await ws.connect()
 await ws.add_market("KXBTC-100K", ["orderbook_delta", "ticker", "trade"])
-await ws.listener_loop()
+
+# listener_loop auto-reconnects on network errors.
+# Sequence gaps raise KalshiSequenceGapError — handle with resubscribe_channel:
+from pykalshi.exceptions import KalshiSequenceGapError
+
+while True:
+    try:
+        await ws.listener_loop()
+    except KalshiSequenceGapError as e:
+        await ws.resubscribe_channel(e.channel)
 ```
 
 ## Typed Models
 
-All API response and request types are available as Pydantic v2 models, auto-generated from the Kalshi OpenAPI spec. This gives you IDE autocomplete, field descriptions, and runtime validation.
+All client methods return typed Pydantic v2 response models — no manual parsing needed. Models are auto-generated from the Kalshi OpenAPI and AsyncAPI specs, giving you IDE autocomplete, field descriptions, and runtime validation.
 
 ```python
-from pykalshi.models import CreateOrderResponse, GetMarketsResponse, Order
+# Responses are already typed — just use attribute access
+result = await client.create_order(ticker="KXBTC-100K", side="yes", action="buy", count=1, yes_price=50)
+print(result.order.order_id)
+print(result.order.status)          # IDE autocomplete works here
+print(result.order.yes_price_dollars)
 
-# Parse raw API response into a typed model
-raw = await client.create_order(ticker="KXBTC-100K", side="yes", action="buy", count=1, yes_price=50)
-resp = CreateOrderResponse(**raw)
-print(resp.order.order_id)
-print(resp.order.status)          # IDE autocomplete works here
-print(resp.order.yes_price_dollars)
-
-# List endpoints return typed collections
-raw_markets = await client.get_markets(status="open", limit=5)
-markets = GetMarketsResponse(**raw_markets)
+markets = await client.get_markets(status="open", limit=5)
 for market in markets.markets:
     print(f"{market.ticker}: {market.yes_bid_dollars}/{market.yes_ask_dollars}")
+
+# Raw dict access via .model_dump() or the lower-level api.* modules
+from pykalshi.api import markets as markets_api
+raw = await markets_api.get_markets(client, status="open", limit=5)  # returns dict[str, Any]
 ```
 
 **144 types** generated across 4 files:
@@ -134,7 +147,7 @@ All models use `extra="ignore"` (forward-compatible with spec additions) and inc
 |---|---|---|
 | `KALSHI_WS_BASE_URL` (env var) | Derived from environment | Override WS base URL |
 
-WebSocket reconnection uses exponential backoff with sequence gap detection.
+WebSocket reconnection uses exponential backoff. Sequence gaps raise `KalshiSequenceGapError` for consumer-controlled recovery via `resubscribe_channel()`.
 
 ## API Coverage & Tests
 
@@ -351,16 +364,18 @@ pykalshi/
     ws_client.py       KalshiWebSocketClient (subscriptions, reconnect)
 
   Shared:
-    models/            Pydantic v2 models — auto-generated from OpenAPI spec
+    models/            Pydantic v2 models — auto-generated from OpenAPI/AsyncAPI specs
       enums.py           Enum types (OrderStatus, ExchangeInstance, ...)
       core.py            Domain objects (Order, Market, Fill, Position, ...)
       requests.py        Request body schemas (CreateOrderRequest, ...)
       responses.py       Response wrappers (CreateOrderResponse, GetOrdersResponse, ...)
+      ws.py              WebSocket message models (Channel enum, FillMsg, TickerMsg, ...)
     testing/           Mock transport factory + pytest fixtures
 
 tools/
-  generate_models.py   Fetch OpenAPI spec and generate Pydantic models
-  sync_docstrings.py   Sync API function docstrings from OpenAPI spec
+  generate_models.py      Fetch OpenAPI spec and generate HTTP models
+  generate_ws_models.py   Fetch AsyncAPI spec and generate WebSocket models
+  sync_docstrings.py      Sync API function docstrings from OpenAPI spec
 ```
 
 ## Tooling
@@ -368,8 +383,11 @@ tools/
 The `tools/` directory contains scripts that sync parts of the codebase with the Kalshi OpenAPI spec:
 
 ```bash
-# Regenerate Pydantic models (enums, core objects, requests, responses)
+# Regenerate HTTP models (enums, core objects, requests, responses)
 uv run python tools/generate_models.py
+
+# Regenerate WebSocket models (Channel enum, message types)
+uv run python tools/generate_ws_models.py
 
 # Sync API function docstrings (summary + description from spec)
 uv run python tools/sync_docstrings.py
@@ -424,9 +442,9 @@ Consumers should type-annotate against Protocol classes, not concrete implementa
 ```python
 from pykalshi import KalshiHttpClientProtocol
 
-async def fetch_balance(client: KalshiHttpClientProtocol) -> float:
+async def fetch_balance(client: KalshiHttpClientProtocol) -> int:
     result = await client.get_balance()
-    return result["balance"]
+    return result.balance  # typed attribute access
 ```
 
 ### WebSocket
@@ -435,7 +453,7 @@ async def fetch_balance(client: KalshiHttpClientProtocol) -> float:
 from pykalshi import KalshiWebSocketClientProtocol
 
 async def subscribe_orderbook(ws: KalshiWebSocketClientProtocol, ticker: str) -> None:
-    await ws.subscribe("orderbook_delta", [ticker])
+    await ws.add_market(ticker, ["orderbook_delta"])
 ```
 
 This enables mocking and swapping implementations freely. The library includes a `py.typed` marker (PEP 561) for full type checking support.
