@@ -1,5 +1,10 @@
-![Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/test.yml/badge.svg)
-![Integration Tests](https://github.com/Kalarb/pykalshi/actions/workflows/integration.yml/badge.svg)
+![REST Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/rest-unit-tests.yml/badge.svg)
+![WS Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/ws-unit-tests.yml/badge.svg)
+![REST Integration](https://github.com/Kalarb/pykalshi/actions/workflows/rest-integration.yml/badge.svg)
+![WS Integration](https://github.com/Kalarb/pykalshi/actions/workflows/ws-integration.yml/badge.svg)
+![OpenAPI Validation](https://github.com/Kalarb/pykalshi/actions/workflows/openapi-validation.yml/badge.svg)
+![AsyncAPI Validation](https://github.com/Kalarb/pykalshi/actions/workflows/asyncapi-validation.yml/badge.svg)
+![Lint](https://github.com/Kalarb/pykalshi/actions/workflows/lint.yml/badge.svg)
 
 # pykalshi
 
