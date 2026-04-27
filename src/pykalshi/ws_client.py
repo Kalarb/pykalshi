@@ -12,7 +12,7 @@ import websockets
 
 from .auth import KalshiCredentials
 from .config import ClientConfig
-from .exceptions import KalshiSequenceGapError
+from .exceptions import KalshiSequenceGapError, KalshiWebSocketError
 from .models.ws import Channel
 from ._observability import get_meter, get_tracer
 
@@ -75,7 +75,7 @@ class KalshiWebSocketClient:
     ) -> None:
         self._credentials = credentials
         self._config = config
-        self.ws: websockets.WebSocketClientProtocol | None = None
+        self.ws: websockets.ClientConnection | None = None
         self._url_suffix = "/trade-api/ws/v2"
         self._message_id = 1
         self._listening = False
@@ -125,10 +125,13 @@ class KalshiWebSocketClient:
         retry_delay = 1
         while self._listening:
             try:
-                async for message in self.ws:
+                if self.ws is None:
+                    raise KalshiWebSocketError("Not connected")
+                async for raw_message in self.ws:
                     retry_delay = 1
+                    message = raw_message if isinstance(raw_message, str) else raw_message.decode()
                     await self._handle_incoming_message(message)
-                raise websockets.ConnectionClosed(1000, "Loop ended unexpectedly")
+                raise websockets.ConnectionClosedOK(None, None)
             except (websockets.ConnectionClosed, OSError, asyncio.TimeoutError) as e:
                 if not self._listening:
                     break
@@ -178,22 +181,22 @@ class KalshiWebSocketClient:
             sid = data.get("sid")
             seq = data.get("seq")
             server_tickers = data.get("market_tickers")
-            chan_state = self._sid_map.get(sid)
-            if chan_state and server_tickers is not None:
-                chan_state.markets = set(server_tickers)
-            if chan_state and seq is not None:
-                if chan_state.seq != 0 and (chan_state.seq + 1) != seq:
+            ok_state = self._sid_map.get(sid)
+            if ok_state and server_tickers is not None:
+                ok_state.markets = set(server_tickers)
+            if ok_state and seq is not None:
+                if ok_state.seq != 0 and (ok_state.seq + 1) != seq:
                     self._sequence_gaps.add(1)
                     logger.warning(
                         "Gap on %s: expected %d, got %d",
-                        chan_state.name,
-                        chan_state.seq + 1,
+                        ok_state.name,
+                        ok_state.seq + 1,
                         seq,
                     )
                     raise KalshiSequenceGapError(
-                        chan_state.name, chan_state.seq + 1, seq
+                        ok_state.name, ok_state.seq + 1, seq
                     )
-                chan_state.seq = seq
+                ok_state.seq = seq
 
         elif msg_type == "unsubscribed":
             sid = data.get("sid")
@@ -202,33 +205,35 @@ class KalshiWebSocketClient:
         elif msg_type in MSG_TYPE_TO_CHANNEL:
             sid = data.get("sid")
             seq = data.get("seq")
-            chan_state = self._sid_map.get(sid)
-            if chan_state:
+            msg_state = self._sid_map.get(sid)
+            if msg_state:
                 expected_channel = MSG_TYPE_TO_CHANNEL[msg_type]
-                if expected_channel is not None and chan_state.name != expected_channel:
+                if expected_channel is not None and msg_state.name != expected_channel:
                     logger.warning(
                         "Mismatch! Received %s (needs %s) on channel %s (SID %s). Ignoring.",
                         msg_type,
                         expected_channel,
-                        chan_state.name,
+                        msg_state.name,
                         sid,
                     )
                 elif seq is not None:
-                    if chan_state.seq != 0 and (chan_state.seq + 1) != seq:
+                    if msg_state.seq != 0 and (msg_state.seq + 1) != seq:
                         self._sequence_gaps.add(1)
                         logger.warning(
                             "Gap on %s: expected %d, got %d",
-                            chan_state.name,
-                            chan_state.seq + 1,
+                            msg_state.name,
+                            msg_state.seq + 1,
                             seq,
                         )
                         raise KalshiSequenceGapError(
-                            chan_state.name, chan_state.seq + 1, seq
+                            msg_state.name, msg_state.seq + 1, seq
                         )
-                    chan_state.seq = seq
+                    msg_state.seq = seq
 
         if self.on_message_callback:
-            task = asyncio.create_task(self.on_message_callback(message))
+            task: asyncio.Task[None] = asyncio.ensure_future(
+                self.on_message_callback(message)
+            )
             task.add_done_callback(_log_callback_exception)
 
     async def add_markets(self, market_tickers: list[str], channels: list[Channel | str]) -> None:

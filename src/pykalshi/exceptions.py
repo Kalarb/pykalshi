@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 
 class KalshiError(Exception):
     """Base exception for all pykalshi errors."""
@@ -25,8 +27,18 @@ class KalshiAPIError(KalshiError):
         self.body = body
         self.method = method
         self.path = path
+        self.error_code: str | None = None
+        self.error_message: str | None = None
+        try:
+            parsed = json.loads(body)
+            if isinstance(parsed, dict):
+                self.error_code = parsed.get("code")
+                self.error_message = parsed.get("message")
+        except (json.JSONDecodeError, TypeError):
+            pass
+        detail = self.error_message or body
         super().__init__(
-            f"Kalshi API Error [{status_code}] {method} {path}: {body}"
+            f"Kalshi API Error [{status_code}] {method} {path}: {detail}"
         )
 
 

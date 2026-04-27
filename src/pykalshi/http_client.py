@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import time
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import httpx
 
@@ -172,7 +173,7 @@ class KalshiHttpClient:
         global_cost: float,
         write_cost: float,
         **kwargs: Any,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """Execute request with rate limiting and 429 retry."""
         wait_start = time.monotonic()
         await self._limiter.acquire(global_cost=global_cost, write_cost=write_cost)
@@ -197,7 +198,9 @@ class KalshiHttpClient:
                             path=path,
                         )
                     self._retries_429.add(1)
-                    wait_time = self._config.base_retry_delay * (2 ** retries)
+                    wait_time = self._config.base_retry_delay * (
+                        2 ** retries
+                    ) * random.uniform(0.5, 1.5)
                     logger.warning(
                         "429 hit. Retrying in %.2fs (%d/%d)",
                         wait_time,
@@ -217,13 +220,15 @@ class KalshiHttpClient:
                     )
                 if not response.content:
                     return {}
-                return response.json()
+                return cast(dict[str, Any], response.json())
 
             except httpx.RequestError as e:
                 if retries >= self._config.max_retries:
                     logger.error("Network error after %d retries: %s", retries, e)
                     raise
-                wait_time = self._config.base_retry_delay * (2 ** retries)
+                wait_time = self._config.base_retry_delay * (
+                    2 ** retries
+                ) * random.uniform(0.5, 1.5)
                 logger.warning(
                     "Network error: %s. Retrying in %.2fs (%d/%d)",
                     e,
@@ -238,14 +243,14 @@ class KalshiHttpClient:
 
     async def get(
         self, path: str, params: Optional[dict[str, Any]] = None
-    ) -> Any:
+    ) -> dict[str, Any]:
         return await self._execute_request(
             "GET", path, 1.0, 0.0, params=params or {}
         )
 
     async def post(
         self, path: str, body: dict[str, Any], write_cost: float = 1.0
-    ) -> Any:
+    ) -> dict[str, Any]:
         return await self._execute_request(
             "POST", path, 1.0, write_cost, json=body
         )
@@ -256,7 +261,7 @@ class KalshiHttpClient:
         body: dict[str, Any],
         write_cost: float = 1.0,
         params: Optional[dict[str, Any]] = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         return await self._execute_request(
             "PUT", path, 1.0, write_cost, json=body, **({"params": params} if params else {})
         )
@@ -266,7 +271,7 @@ class KalshiHttpClient:
         path: str,
         body: Optional[dict[str, Any]] = None,
         write_cost: float = 1.0,
-    ) -> Any:
+    ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {}
         if body is not None:
             kwargs["json"] = body
