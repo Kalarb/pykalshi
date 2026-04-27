@@ -9,6 +9,7 @@ Skip with: uv run pytest tests/ -v -m "not integration"
 
 import asyncio
 import os
+import time
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -168,6 +169,34 @@ class TestMarketsIntegration:
         result = await client.get_trades(limit=5)
         assert "trades" in result
 
+    @pytest.mark.asyncio
+    async def test_get_market_candlesticks(self, client: KalshiHttpClient) -> None:
+        """Fetch candlesticks for an open market using its series ticker."""
+        events_resp = await client.get_events(
+            limit=1, status="open", with_nested_markets=True,
+        )
+        events = events_resp.get("events", [])
+        if not events:
+            pytest.skip("No open events on DEMO")
+        event = events[0]
+        series_ticker = event.get("series_ticker")
+        markets = event.get("markets", [])
+        if not series_ticker or not markets:
+            pytest.skip("No series_ticker or nested markets on DEMO event")
+        ticker = markets[0]["ticker"]
+
+        now = int(time.time())
+        try:
+            result = await client.get_market_candlesticks(
+                series_ticker, ticker,
+                start_ts=now - 86400, end_ts=now, period_interval=3600,
+            )
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Market candlesticks not available ({e.status_code})")
+            raise
+
 
 # =============================================================================
 # Events
@@ -204,6 +233,57 @@ class TestEventsIntegration:
     async def test_get_multivariate_events(self, client: KalshiHttpClient) -> None:
         result = await client.get_multivariate_events(limit=5)
         assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_get_event_candlesticks(self, client: KalshiHttpClient) -> None:
+        """Fetch candlesticks for an open event using its series ticker."""
+        events_resp = await client.get_events(limit=1, status="open")
+        events = events_resp.get("events", [])
+        if not events:
+            pytest.skip("No open events on DEMO")
+        event = events[0]
+        series_ticker = event.get("series_ticker")
+        event_ticker = event.get("event_ticker")
+        if not series_ticker or not event_ticker:
+            pytest.skip("Event missing series_ticker or event_ticker")
+
+        now = int(time.time())
+        try:
+            result = await client.get_event_candlesticks(
+                series_ticker, event_ticker,
+                start_ts=now - 86400, end_ts=now, period_interval=3600,
+            )
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Event candlesticks not available ({e.status_code})")
+            raise
+
+    @pytest.mark.asyncio
+    async def test_get_forecast_percentile_history(self, client: KalshiHttpClient) -> None:
+        """Fetch forecast percentile history for an open event."""
+        events_resp = await client.get_events(limit=1, status="open")
+        events = events_resp.get("events", [])
+        if not events:
+            pytest.skip("No open events on DEMO")
+        event = events[0]
+        series_ticker = event.get("series_ticker")
+        event_ticker = event.get("event_ticker")
+        if not series_ticker or not event_ticker:
+            pytest.skip("Event missing series_ticker or event_ticker")
+
+        now = int(time.time())
+        try:
+            result = await client.get_forecast_percentile_history(
+                series_ticker, event_ticker,
+                percentiles=[25, 50, 75],
+                start_ts=now - 86400, end_ts=now, period_interval=3600,
+            )
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Forecast percentile history not available ({e.status_code})")
+            raise
 
 
 # =============================================================================
@@ -317,6 +397,46 @@ class TestHistoricalIntegration:
         result = await client.get_historical_trades(limit=5)
         assert isinstance(result, dict)
 
+    @pytest.mark.asyncio
+    async def test_get_historical_market(self, client: KalshiHttpClient) -> None:
+        """Fetch a single historical market by ticker."""
+        hist = await client.get_historical_markets(limit=1)
+        markets = hist.get("markets", [])
+        if not markets:
+            pytest.skip("No historical markets on DEMO")
+        ticker = markets[0].get("ticker")
+        if not ticker:
+            pytest.skip("Historical market missing ticker")
+        try:
+            result = await client.get_historical_market(ticker)
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Historical market not available ({e.status_code})")
+            raise
+
+    @pytest.mark.asyncio
+    async def test_get_historical_market_candlesticks(self, client: KalshiHttpClient) -> None:
+        """Fetch candlesticks for a historical market."""
+        hist = await client.get_historical_markets(limit=1)
+        markets = hist.get("markets", [])
+        if not markets:
+            pytest.skip("No historical markets on DEMO")
+        ticker = markets[0].get("ticker")
+        if not ticker:
+            pytest.skip("Historical market missing ticker")
+
+        now = int(time.time())
+        try:
+            result = await client.get_historical_market_candlesticks(
+                ticker, start_ts=0, end_ts=now, period_interval=86400,
+            )
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Historical candlesticks not available ({e.status_code})")
+            raise
+
 
 # =============================================================================
 # Milestones
@@ -329,6 +449,24 @@ class TestMilestonesIntegration:
     async def test_get_milestones(self, client: KalshiHttpClient) -> None:
         result = await client.get_milestones(limit=5)
         assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_get_milestone_by_id(self, client: KalshiHttpClient) -> None:
+        """Fetch a single milestone by ID."""
+        listing = await client.get_milestones(limit=1)
+        milestones = listing.get("milestones", [])
+        if not milestones:
+            pytest.skip("No milestones on DEMO")
+        milestone_id = milestones[0].get("id") or milestones[0].get("milestone_id")
+        if not milestone_id:
+            pytest.skip("Milestone missing ID field")
+        try:
+            result = await client.get_milestone(milestone_id)
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"get_milestone not available ({e.status_code})")
+            raise
 
 
 # =============================================================================
@@ -343,6 +481,27 @@ class TestStructuredTargetsIntegration:
         result = await client.get_structured_targets(page_size=5)
         assert isinstance(result, dict)
 
+    @pytest.mark.asyncio
+    async def test_get_structured_target_by_id(self, client: KalshiHttpClient) -> None:
+        """Fetch a single structured target by ID."""
+        listing = await client.get_structured_targets(page_size=1)
+        targets = listing.get("structured_targets", [])
+        if not targets:
+            pytest.skip("No structured targets on DEMO")
+        target_id = (
+            targets[0].get("id")
+            or targets[0].get("structured_target_id")
+        )
+        if not target_id:
+            pytest.skip("Structured target missing ID field")
+        try:
+            result = await client.get_structured_target(target_id)
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"get_structured_target not available ({e.status_code})")
+            raise
+
 
 # =============================================================================
 # Incentive Programs
@@ -355,6 +514,72 @@ class TestIncentiveProgramsIntegration:
     async def test_get_incentive_programs(self, client: KalshiHttpClient) -> None:
         result = await client.get_incentive_programs(limit=5)
         assert isinstance(result, dict)
+
+
+# =============================================================================
+# Live Data
+# =============================================================================
+
+
+@pytest.mark.skipif(not _HAS_CREDS, reason="No DEMO credentials in .env")
+class TestLiveDataIntegration:
+    @pytest.mark.asyncio
+    async def test_get_live_data(self, client: KalshiHttpClient) -> None:
+        """Fetch live data for a milestone."""
+        listing = await client.get_milestones(limit=1)
+        milestones = listing.get("milestones", [])
+        if not milestones:
+            pytest.skip("No milestones on DEMO")
+        milestone_id = milestones[0].get("id") or milestones[0].get("milestone_id")
+        if not milestone_id:
+            pytest.skip("Milestone missing ID field")
+        try:
+            result = await client.get_live_data(milestone_id)
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Live data not available for milestone ({e.status_code})")
+            raise
+
+    @pytest.mark.asyncio
+    async def test_get_live_data_batch(self, client: KalshiHttpClient) -> None:
+        """Fetch live data for multiple milestones."""
+        listing = await client.get_milestones(limit=3)
+        milestones = listing.get("milestones", [])
+        if not milestones:
+            pytest.skip("No milestones on DEMO")
+        ids = [
+            m.get("id") or m.get("milestone_id")
+            for m in milestones
+            if m.get("id") or m.get("milestone_id")
+        ]
+        if not ids:
+            pytest.skip("Milestones missing ID fields")
+        try:
+            result = await client.get_live_data_batch(ids)
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Live data batch not available ({e.status_code})")
+            raise
+
+    @pytest.mark.asyncio
+    async def test_get_game_stats(self, client: KalshiHttpClient) -> None:
+        """Fetch game stats for a milestone."""
+        listing = await client.get_milestones(limit=1)
+        milestones = listing.get("milestones", [])
+        if not milestones:
+            pytest.skip("No milestones on DEMO")
+        milestone_id = milestones[0].get("id") or milestones[0].get("milestone_id")
+        if not milestone_id:
+            pytest.skip("Milestone missing ID field")
+        try:
+            result = await client.get_game_stats(milestone_id)
+            assert isinstance(result, dict)
+        except KalshiAPIError as e:
+            if e.status_code in (400, 404):
+                pytest.skip(f"Game stats not available for milestone ({e.status_code})")
+            raise
 
 
 # =============================================================================
@@ -426,6 +651,26 @@ class TestApiKeysIntegration:
 
         await client.delete_api_key(api_key_id)
 
+    @pytest.mark.asyncio
+    async def test_generate_api_key(self, client: KalshiHttpClient) -> None:
+        """Generate an API key by name, then delete it."""
+        try:
+            generated = await client.generate_api_key(name="pykalshi-test-gen")
+        except KalshiAPIError as e:
+            if e.status_code in (400, 403):
+                pytest.skip(f"generate_api_key not available on DEMO ({e.status_code})")
+            raise
+
+        assert isinstance(generated, dict)
+        api_key_id = (
+            generated.get("api_key_id")
+            or generated.get("id")
+            or generated.get("api_key", {}).get("api_key_id")
+            or generated.get("api_key", {}).get("id")
+        )
+        if api_key_id:
+            await client.delete_api_key(api_key_id)
+
 
 # =============================================================================
 # Order Groups (create -> get -> reset -> delete lifecycle)
@@ -453,6 +698,9 @@ class TestOrderGroupsIntegration:
                 timeout=20,
             )
             assert isinstance(got, dict)
+
+            # Update limit
+            await client.update_order_group_limit(group_id, limit=50)
 
             # Reset it
             await client.reset_order_group(group_id)

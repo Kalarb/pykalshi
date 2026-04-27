@@ -1,9 +1,11 @@
 ![REST Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/rest-unit-tests.yml/badge.svg)
-![WS Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/ws-unit-tests.yml/badge.svg)
 ![REST Integration](https://github.com/Kalarb/pykalshi/actions/workflows/rest-integration.yml/badge.svg)
-![WS Integration](https://github.com/Kalarb/pykalshi/actions/workflows/ws-integration.yml/badge.svg)
 ![OpenAPI Validation](https://github.com/Kalarb/pykalshi/actions/workflows/openapi-validation.yml/badge.svg)
+
+![WS Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/ws-unit-tests.yml/badge.svg)
+![WS Integration](https://github.com/Kalarb/pykalshi/actions/workflows/ws-integration.yml/badge.svg)
 ![AsyncAPI Validation](https://github.com/Kalarb/pykalshi/actions/workflows/asyncapi-validation.yml/badge.svg)
+
 ![Lint](https://github.com/Kalarb/pykalshi/actions/workflows/lint.yml/badge.svg)
 
 # pykalshi
@@ -51,6 +53,17 @@ async with KalshiHttpClient(creds, config) as client:
     await client.cancel_order(order["order"]["order_id"])
 ```
 
+#### Backward-Compatible Constructors
+
+Drop-in replacements for the old `KalshiHttpClient(key_id, path, env)` pattern:
+
+```python
+from pykalshi import create_http_client, create_ws_client, Environment
+
+client = create_http_client("key-id", "/path/to/key.pem", Environment.DEMO)
+ws = create_ws_client("key-id", "/path/to/key.pem", Environment.DEMO)
+```
+
 ### WebSocket Client
 
 ```python
@@ -67,184 +80,195 @@ await ws.add_market("KXBTC-100K", ["orderbook_delta", "ticker", "trade"])
 await ws.listener_loop()
 ```
 
-### Backward-Compatible Constructors
-
-Drop-in replacements for the old `KalshiHttpClient(key_id, path, env)` pattern:
-
-```python
-from pykalshi import create_http_client, create_ws_client, Environment
-
-client = create_http_client("key-id", "/path/to/key.pem", Environment.DEMO)
-ws = create_ws_client("key-id", "/path/to/key.pem", Environment.DEMO)
-```
-
 ## Configuration
 
-| Env var | Default | Description |
+### HTTP
+
+| Field | Default | Description |
 |---|---|---|
-| `KALSHI_HTTP_BASE_URL` | Derived from environment | Override HTTP base URL |
-| `KALSHI_WS_BASE_URL` | Derived from environment | Override WS base URL |
+| `KALSHI_HTTP_BASE_URL` (env var) | Derived from environment | Override HTTP base URL |
+| `environment` | `DEMO` | `Environment.DEMO` or `Environment.PROD` |
+| `read_rate` | 20.0 | Read requests per second |
+| `write_rate` | 10.0 | Write requests per second |
+| `max_retries` | 4 | Retry count for 429/5xx |
+| `base_retry_delay` | 0.1s | Initial backoff delay |
+| `connect_timeout` | 5.0s | Connection timeout |
+| `read_timeout` | 30.0s | Read timeout |
+| `write_timeout` | 10.0s | Write timeout |
 
-`ClientConfig` fields: `environment`, `read_rate` (20.0), `write_rate` (10.0), `max_retries` (4), `base_retry_delay` (0.1s), timeout settings.
+### WebSocket
 
-## API Coverage
+| Field | Default | Description |
+|---|---|---|
+| `KALSHI_WS_BASE_URL` (env var) | Derived from environment | Override WS base URL |
 
-| Category | Endpoints | Methods |
-|---|:---:|---|
-| Exchange | 4 | status, schedule, announcements, user_data_timestamp |
-| Account | 2 | limits, endpoint_costs |
-| Orders | 12 | CRUD, batch create/cancel, amend, decrease, queue positions |
-| Order Groups | 7 | CRUD, reset, trigger, update limit |
-| Portfolio | 4 | balance, positions, settlements, fills |
-| Markets | 6 | get, list, orderbook, orderbooks (batch), trades, candlesticks |
-| Events | 6 | get, list, multivariate, metadata, candlesticks, forecast |
-| Series | 3 | get, list, fee_changes |
-| Search | 2 | tags_by_categories, filters_by_sport |
-| Historical | 7 | cutoff, markets, market, candlesticks, fills, orders, trades |
-| API Keys | 4 | list, create, generate, delete |
-| Communications | 10 | id, RFQ CRUD, Quote CRUD + accept |
-| Live Data | 4 | milestone, legacy, batch, game_stats |
-| Milestones | 2 | get, list |
-| Structured Targets | 2 | get, list |
-| Incentive Programs | 1 | list |
-| **WebSocket** | 11 channels, 17 message types | Full coverage validated against AsyncAPI spec |
+WebSocket reconnection uses exponential backoff with sequence gap detection.
+
+## API Coverage & Tests
+
+Every implemented endpoint has a unit test (mock transport). Integration tests hit the real Kalshi DEMO API (HTTP) or PROD API (WebSocket, read-only).
 
 **Skipped** (not accessible): subaccounts, FCM, summary/resting_order_value.
 
-## Test Matrix
+### HTTP
 
-Every endpoint has a unit test (mock transport). Integration tests hit the real Kalshi DEMO API.
+#### Exchange
 
-### Exchange / Account / Search
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_exchange_status` | Y | Y | Y | |
+| `get_exchange_schedule` | Y | Y | Y | |
+| `get_exchange_announcements` | Y | Y | Y | |
+| `get_user_data_timestamp` | Y | Y | Y | |
 
-| Method | Unit | Integration |
-|---|:---:|:---:|
-| `get_exchange_status` | Y | Y |
-| `get_exchange_schedule` | Y | Y |
-| `get_exchange_announcements` | Y | Y |
-| `get_user_data_timestamp` | Y | Y |
-| `get_api_limits` | Y | Y |
-| `get_endpoint_costs` | Y | Y (skips if 403) |
-| `get_tags_by_categories` | Y | Y |
-| `get_filters_by_sport` | Y | Y |
+#### Account
 
-### Orders
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_api_limits` | Y | Y | Y | |
+| `get_endpoint_costs` | Y | Y | Y | skips if 403 |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_orders` | Y | Y | |
-| `get_order` | Y | Y | via create+cancel lifecycle |
-| `create_order` | Y | Y | places at 1c, won't fill |
-| `cancel_order` | Y | Y | cleans up created order |
-| `amend_order` | Y | Y | create → amend price → cancel |
-| `decrease_order` | Y | Y | create count=2 → decrease to 1 → cancel |
-| `batch_create_orders` | Y | Y | batch create 3 → batch cancel all |
-| `batch_cancel_orders` | Y | Y | same test as batch_create |
-| `get_queue_positions` | Y | Y | |
-| `get_order_queue_position` | Y | Y | create → wait → get position → cancel |
+#### Orders
 
-### Order Groups
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_orders` | Y | Y | Y | |
+| `get_order` | Y | Y | Y | via create+cancel lifecycle |
+| `create_order` | Y | Y | Y | places at 1c, won't fill |
+| `cancel_order` | Y | Y | Y | cleans up created order |
+| `amend_order` | Y | Y | Y | create → amend price → cancel |
+| `decrease_order` | Y | Y | Y | create count=2 → decrease to 1 → cancel |
+| `batch_create_orders` | Y | Y | Y | batch create 3 → batch cancel all |
+| `batch_cancel_orders` | Y | Y | Y | same test as batch_create |
+| `get_queue_positions` | Y | Y | Y | |
+| `get_order_queue_position` | Y | Y | Y | create → wait → get position → cancel |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_order_groups` | Y | Y | via lifecycle test |
-| `create_order_group` | Y | Y | creates with limit=100 |
-| `get_order_group` | Y | Y | with retry for propagation delay |
-| `delete_order_group` | Y | Y | cleans up in finally block |
-| `reset_order_group` | Y | Y | |
-| `trigger_order_group` | Y | | would affect live groups |
-| `update_order_group_limit` | Y | | would affect live groups |
+#### Order Groups
 
-### Portfolio
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_order_groups` | Y | Y | Y | via lifecycle test |
+| `create_order_group` | Y | Y | Y | creates with limit=100 |
+| `get_order_group` | Y | Y | Y | with retry for propagation delay |
+| `delete_order_group` | Y | Y | Y | cleans up in finally block |
+| `reset_order_group` | Y | Y | Y | |
+| `update_order_group_limit` | Y | Y | Y | update limit in lifecycle test |
+| `trigger_order_group` | Y | Y | | would affect live groups |
 
-| Method | Unit | Integration |
-|---|:---:|:---:|
-| `get_balance` | Y | Y |
-| `get_positions` | Y | Y |
-| `get_settlements` | Y | Y |
-| `get_fills` | Y | Y |
+#### Portfolio
 
-### Markets
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_balance` | Y | Y | Y | |
+| `get_positions` | Y | Y | Y | |
+| `get_settlements` | Y | Y | Y | |
+| `get_fills` | Y | Y | Y | |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_market` | Y | Y | |
-| `get_markets` | Y | Y | |
-| `get_market_orderbook` | Y | Y | |
-| `get_market_orderbooks` | Y | Y | batch, 3 tickers |
-| `get_trades` | Y | Y | |
-| `get_market_candlesticks` | Y | | needs series_ticker + time range |
+#### Markets
 
-### Events
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_market` | Y | Y | Y | |
+| `get_markets` | Y | Y | Y | |
+| `get_market_orderbook` | Y | Y | Y | |
+| `get_market_orderbooks` | Y | Y | Y | batch, 3 tickers |
+| `get_trades` | Y | Y | Y | |
+| `get_market_candlesticks` | Y | Y | Y | via series + market ticker |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_event` | Y | Y | |
-| `get_events` | Y | Y | |
-| `get_multivariate_events` | Y | Y | |
-| `get_event_metadata` | Y | Y | |
-| `get_event_candlesticks` | Y | | needs series_ticker + time range |
-| `get_forecast_percentile_history` | Y | | needs series_ticker + time range |
+#### Events
 
-### Series
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_event` | Y | Y | Y | |
+| `get_events` | Y | Y | Y | |
+| `get_multivariate_events` | Y | Y | Y | |
+| `get_event_metadata` | Y | Y | Y | |
+| `get_event_candlesticks` | Y | Y | Y | via series + event ticker |
+| `get_forecast_percentile_history` | Y | Y | Y | skips if unsupported on DEMO |
 
-| Method | Unit | Integration |
-|---|:---:|:---:|
-| `get_series` | Y | Y |
-| `get_series_list` | Y | Y |
-| `get_fee_changes` | Y | Y |
+#### Series
 
-### Historical
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_series` | Y | Y | Y | |
+| `get_series_list` | Y | Y | Y | |
+| `get_fee_changes` | Y | Y | Y | |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_historical_cutoff` | Y | Y | |
-| `get_historical_markets` | Y | Y | |
-| `get_historical_market` | Y | | needs specific archived ticker |
-| `get_historical_market_candlesticks` | Y | | needs archived ticker + time range |
-| `get_historical_fills` | Y | Y | |
-| `get_historical_orders` | Y | Y | |
-| `get_historical_trades` | Y | Y | |
+#### Search
 
-### API Keys
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_tags_by_categories` | Y | Y | Y | |
+| `get_filters_by_sport` | Y | Y | Y | |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_api_keys` | Y | Y | |
-| `create_api_key` | Y | Y (skips if 400) | throwaway RSA pubkey |
-| `generate_api_key` | Y | | |
-| `delete_api_key` | Y | Y | cleans up created key |
+#### Historical
 
-### Communications
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_historical_cutoff` | Y | Y | Y | |
+| `get_historical_markets` | Y | Y | Y | |
+| `get_historical_market` | Y | Y | Y | uses ticker from history list |
+| `get_historical_market_candlesticks` | Y | Y | Y | skips if no historical data |
+| `get_historical_fills` | Y | Y | Y | |
+| `get_historical_orders` | Y | Y | Y | |
+| `get_historical_trades` | Y | Y | Y | |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_communications_id` | Y | Y | |
-| `get_rfqs` | Y | Y | |
-| `create_rfq` | Y | Y (skips if error) | |
-| `get_rfq` | Y | Y | via create+delete lifecycle |
-| `delete_rfq` | Y | Y | cleans up created RFQ |
-| `get_quotes` | Y | Y (skips if 400) | |
-| `create_quote` | Y | | needs counterparty RFQ |
-| `get_quote` | Y | | |
-| `delete_quote` | Y | | |
-| `accept_quote` | Y | | needs counterparty RFQ |
+#### API Keys
 
-### Live Data / Milestones / Structured Targets / Incentive Programs
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_api_keys` | Y | Y | Y | |
+| `create_api_key` | Y | Y | Y | skips if 400; throwaway RSA pubkey |
+| `generate_api_key` | Y | Y | Y | skips if 403; cleans up after |
+| `delete_api_key` | Y | Y | Y | cleans up created key |
 
-| Method | Unit | Integration | Notes |
-|---|:---:|:---:|---|
-| `get_live_data` | Y | | needs active milestone ID |
-| `get_live_data_legacy` | | | deprecated endpoint |
-| `get_live_data_batch` | Y | | needs active milestone IDs |
-| `get_game_stats` | Y | | needs active milestone ID |
-| `get_milestone` | Y | | needs specific milestone ID |
-| `get_milestones` | Y | Y | |
-| `get_structured_target` | Y | | needs specific target ID |
-| `get_structured_targets` | Y | Y | |
-| `get_incentive_programs` | Y | Y | |
+#### Communications
 
-### WebSocket — Unit Tests
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_communications_id` | Y | Y | Y | |
+| `get_rfqs` | Y | Y | Y | |
+| `create_rfq` | Y | Y | Y | skips if error |
+| `get_rfq` | Y | Y | Y | via create+delete lifecycle |
+| `delete_rfq` | Y | Y | Y | cleans up created RFQ |
+| `get_quotes` | Y | Y | Y | skips if 400 |
+| `create_quote` | Y | Y | | needs counterparty RFQ |
+| `get_quote` | Y | Y | | needs counterparty RFQ |
+| `delete_quote` | Y | Y | | needs counterparty RFQ |
+| `accept_quote` | Y | Y | | needs two accounts |
+
+#### Live Data
+
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_live_data` | Y | Y | Y | skips if 404/400 |
+| `get_live_data_legacy` | Y | | | deprecated endpoint |
+| `get_live_data_batch` | Y | Y | Y | skips if 404/400 |
+| `get_game_stats` | Y | Y | Y | skips if 404/400 |
+
+#### Milestones
+
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_milestones` | Y | Y | Y | |
+| `get_milestone` | Y | Y | Y | uses ID from list |
+
+#### Structured Targets
+
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_structured_targets` | Y | Y | Y | |
+| `get_structured_target` | Y | Y | Y | uses ID from list |
+
+#### Incentive Programs
+
+| Method | Impl | Unit | Integration | Notes |
+|---|:---:|:---:|:---:|---|
+| `get_incentive_programs` | Y | Y | Y | |
+
+### WebSocket
+
+#### Unit Tests
 
 | Check | Status |
 |---|:---:|
@@ -257,7 +281,7 @@ Every endpoint has a unit test (mock transport). Integration tests hit the real 
 | Unknown message type passthrough | Y |
 | Validated against live AsyncAPI spec | Y |
 
-### WebSocket — Integration Tests (PROD)
+#### Integration Tests (PROD)
 
 | Test | Channel/Operation | Verified |
 |---|---|---|
@@ -279,31 +303,57 @@ Every endpoint has a unit test (mock transport). Integration tests hit the real 
 
 ```
 pykalshi/
-  auth.py            KalshiCredentials (RSA-PSS signing)
-  config.py          Environment + ClientConfig (frozen dataclass)
-  http_client.py     KalshiHttpClient (rate limiting, retry, OTel)
-  ws_client.py       KalshiWebSocketClient (subscriptions, reconnect)
-  rate_limiter.py    ReadWriteTokenBucket (disjoint read/write)
-  protocols.py       Typed Protocol classes (consumer contract)
-  exceptions.py      KalshiError hierarchy
-  _observability.py  OTel no-op facade (zero overhead when not installed)
-  api/               One module per domain (orders, markets, events, ...)
-  models/            Pydantic v2 models (enums, common types)
-  testing/           Mock transport factory + pytest fixtures
+  Core:
+    auth.py            KalshiCredentials (RSA-PSS signing)
+    config.py          Environment + ClientConfig (frozen dataclass)
+    protocols.py       Typed Protocol classes (consumer contract)
+    exceptions.py      KalshiError hierarchy
+    rate_limiter.py    ReadWriteTokenBucket (disjoint read/write)
+    _observability.py  OTel no-op facade (zero overhead when not installed)
+
+  HTTP:
+    http_client.py     KalshiHttpClient (rate limiting, retry, OTel)
+    api/               One module per domain (orders, markets, events, ...)
+
+  WebSocket:
+    ws_client.py       KalshiWebSocketClient (subscriptions, reconnect)
+
+  Shared:
+    models/            Pydantic v2 models (enums, common types)
+    testing/           Mock transport factory + pytest fixtures
 ```
 
 ## Testing
 
+### HTTP
+
 ```bash
 # Unit tests (fast, no credentials needed)
-uv run pytest tests/ -v -m "not integration"
+uv run pytest tests/test_http_client.py tests/test_auth.py tests/test_rate_limiter.py -v
 
 # Integration tests (requires .env with DEMO credentials)
 uv run pytest tests/test_integration.py -v
 
-# Spec validation (fetches live OpenAPI + AsyncAPI from docs.kalshi.com)
-uv run pytest tests/test_spec_validation.py -v
+# OpenAPI spec validation (fetches live spec from docs.kalshi.com)
+uv run pytest tests/test_openapi_validation.py -v -s
+```
 
+### WebSocket
+
+```bash
+# Unit tests (fast, no credentials needed)
+uv run pytest tests/test_ws_client.py -v
+
+# Integration tests (requires .env with PROD read-only credentials)
+uv run pytest tests/test_ws_integration.py -v
+
+# AsyncAPI spec validation (fetches live spec from docs.kalshi.com)
+uv run pytest tests/test_asyncapi_validation.py -v -s
+```
+
+### All
+
+```bash
 # Everything
 uv run pytest tests/ -v
 
@@ -315,12 +365,23 @@ uv run ruff check src/ tests/
 
 Consumers should type-annotate against Protocol classes, not concrete implementations:
 
+### HTTP
+
 ```python
 from pykalshi import KalshiHttpClientProtocol
 
 async def fetch_balance(client: KalshiHttpClientProtocol) -> float:
     result = await client.get_balance()
     return result["balance"]
+```
+
+### WebSocket
+
+```python
+from pykalshi import KalshiWebSocketClientProtocol
+
+async def subscribe_orderbook(ws: KalshiWebSocketClientProtocol, ticker: str) -> None:
+    await ws.subscribe("orderbook_delta", [ticker])
 ```
 
 This enables mocking and swapping implementations freely. The library includes a `py.typed` marker (PEP 561) for full type checking support.
