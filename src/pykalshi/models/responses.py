@@ -49,7 +49,7 @@ class GenerateApiKeyResponse(BaseModel):
 class GetTagsForSeriesCategoriesResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    tags_by_categories: dict[str, list[str] | None] = Field(..., description="Mapping of series categories to their associated tags")
+    tags_by_categories: dict[str, list[str]] = Field(..., description="Mapping of series categories to their associated tags")
 
 
 class GetFiltersBySportsResponse(BaseModel):
@@ -137,7 +137,7 @@ class GetLiveDataResponse(BaseModel):
 class GetLiveDatasResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    live_datas: list[LiveData] | None = None
+    live_datas: list[LiveData]
 
 
 class GetGameStatsResponse(BaseModel):
@@ -229,7 +229,7 @@ class GetOrderQueuePositionResponse(BaseModel):
 class GetOrderQueuePositionsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    queue_positions: list[OrderQueuePosition] | None = Field(None, description="Queue positions for all matching orders")
+    queue_positions: list[OrderQueuePosition] = Field(..., description="Queue positions for all matching orders")
 
 
 class GetPositionsResponse(BaseModel):

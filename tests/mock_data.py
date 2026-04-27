@@ -50,6 +50,7 @@ MOCK_MARKET = {
     "previous_yes_bid_dollars": "0.44",
     "previous_yes_ask_dollars": "0.56",
     "previous_price_dollars": "0.49",
+    "liquidity_dollars": "0.0000",
     "expiration_value": "",
     "rules_primary": "If BTC > 100K, resolves Yes.",
     "rules_secondary": "Settlement per official sources.",

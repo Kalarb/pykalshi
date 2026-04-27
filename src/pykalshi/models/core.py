@@ -11,15 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from .enums import OrderStatus, SelfTradePreventionType
 
 
-class BidAskDistributionHistorical(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
-
-
 class PriceDistributionHistorical(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -29,6 +20,15 @@ class PriceDistributionHistorical(BaseModel):
     close: str | None = Field(None, description="Price of the last trade during the candlestick period (in dollars). Null if no trades occurred.")
     mean: str | None = Field(None, description="Volume-weighted average price during the candlestick period (in dollars). Null if no trades occurred.")
     previous: str | None = Field(None, description="Close price from the previous candlestick period (in dollars). Null if this is the first candlestick or no prior trade exists.")
+
+
+class BidAskDistributionHistorical(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestickHistorical(BaseModel):
@@ -88,6 +88,13 @@ class Announcement(BaseModel):
     status: str = Field(..., description="The current status of this announcement.")
 
 
+class MaintenanceWindow(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    start_datetime: str = Field(..., description="Start date and time of the maintenance window.")
+    end_datetime: str = Field(..., description="End date and time of the maintenance window.")
+
+
 class DailySchedule(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -109,18 +116,20 @@ class WeeklySchedule(BaseModel):
     sunday: list[DailySchedule] = Field(..., description="Trading hours for Sunday. May contain multiple sessions.")
 
 
-class MaintenanceWindow(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    start_datetime: str = Field(..., description="Start date and time of the maintenance window.")
-    end_datetime: str = Field(..., description="End date and time of the maintenance window.")
-
-
 class Schedule(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     standard_hours: list[WeeklySchedule] = Field(..., description="The standard operating hours of the exchange. All times are expressed in ET. Outside of these times trading will be unavailable.")
     maintenance_windows: list[MaintenanceWindow] = Field(..., description="Scheduled maintenance windows, during which the exchange may be unavailable.")
+
+
+class BidAskDistribution(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class PriceDistribution(BaseModel):
@@ -134,15 +143,6 @@ class PriceDistribution(BaseModel):
     previous_dollars: str | None = Field(None, description="Last traded YES contract price on the market before the candlestick period (in dollars). May be null if there were no trades before the period.")
     min_dollars: str | None = Field(None, description="Minimum close price of any market during the candlestick period (in dollars).")
     max_dollars: str | None = Field(None, description="Maximum close price of any market during the candlestick period (in dollars).")
-
-
-class BidAskDistribution(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestick(BaseModel):
@@ -251,6 +251,7 @@ class MarketPosition(BaseModel):
     position_fp: str = Field(..., description="String representation of the number of contracts bought in this market. Negative means NO contracts and positive means YES contracts")
     market_exposure_dollars: str = Field(..., description="Cost of the aggregate market position in dollars")
     realized_pnl_dollars: str = Field(..., description="Locked in profit and loss, in dollars")
+    resting_orders_count: int = Field(..., description="[DEPRECATED] Aggregate size of resting orders in contract units", deprecated=True)
     fees_paid_dollars: str = Field(..., description="Fees paid on fill orders, in dollars")
     last_updated_ts: str = Field(..., description="Last time the position is updated")
 
@@ -506,6 +507,8 @@ class Market(BaseModel):
     ticker: str
     event_ticker: str
     market_type: str = Field(..., description="Identifies the type of market")
+    title: str | None = Field(None, deprecated=True)
+    subtitle: str | None = Field(None, deprecated=True)
     yes_sub_title: str = Field(..., description="Shortened title for the yes side of this market")
     no_sub_title: str = Field(..., description="Shortened title for the no side of this market")
     created_time: str
@@ -513,9 +516,11 @@ class Market(BaseModel):
     open_time: str
     close_time: str
     expected_expiration_time: str | None = Field(None, description="Time when this market is expected to expire")
+    expiration_time: str | None = Field(None, deprecated=True)
     latest_expiration_time: str = Field(..., description="Latest possible time for this market to expire")
     settlement_timer_seconds: int = Field(..., description="The amount of time after determination that the market settles")
     status: str = Field(..., description="The current status of the market in its lifecycle.")
+    response_price_units: str | None = Field(None, description="DEPRECATED: Use price_level_structure and price_ranges instead.", deprecated=True)
     yes_bid_dollars: str = Field(..., description="Price for the highest YES buy offer on this market in dollars")
     yes_bid_size_fp: str = Field(..., description="Total contract size of orders to buy YES at the best bid price (fixed-point count string).")
     yes_ask_dollars: str = Field(..., description="Price for the lowest YES sell offer on this market in dollars")
@@ -533,12 +538,14 @@ class Market(BaseModel):
     previous_yes_bid_dollars: str = Field(..., description="Price for the highest YES buy offer on this market a day ago in dollars")
     previous_yes_ask_dollars: str = Field(..., description="Price for the lowest YES sell offer on this market a day ago in dollars")
     previous_price_dollars: str = Field(..., description="Price for the last traded YES contract on this market a day ago in dollars")
+    liquidity_dollars: str = Field(..., description="DEPRECATED: This field is deprecated and will always return \"0.0000\".", deprecated=True)
     settlement_value_dollars: str | None = Field(None, description="The settlement value of the YES/LONG side of the contract in dollars. Only filled after determination")
     settlement_ts: str | None = Field(None, description="Timestamp when the market was settled. Only filled for settled markets")
     expiration_value: str = Field(..., description="The value that was considered for the settlement")
     occurrence_datetime: str | None = Field(None, description="The recorded datetime when the underlying event occurred, if available")
     fee_waiver_expiration_time: str | None = Field(None, description="Time when this market's fee waiver expires")
     early_close_condition: str | None = Field(None, description="The condition under which the market can close early")
+    tick_size: int | None = Field(None, description="DEPRECATED: Use price_level_structure and price_ranges instead.", deprecated=True)
     strike_type: str | None = Field(None, description="Strike type defines how the market strike is defined and evaluated")
     floor_strike: float | None = Field(None, description="Minimum expiration value that leads to a YES settlement")
     cap_strike: float | None = Field(None, description="Maximum expiration value that leads to a YES settlement")
@@ -563,6 +570,7 @@ class EventData(BaseModel):
     title: str = Field(..., description="Full title of the event.")
     collateral_return_type: str = Field(..., description="Specifies how collateral is returned when markets settle (e.g., 'binary' for standard yes/no markets).")
     mutually_exclusive: bool = Field(..., description="If true, only one market in this event can resolve to 'yes'. If false, multiple markets can resolve to 'yes'.")
+    category: str | None = Field(None, description="Event category (deprecated, use series-level category instead).", deprecated=True)
     strike_date: str | None = Field(None, description="The specific date this event is based on. Only filled when the event uses a date strike (mutually exclusive with strike_period).")
     strike_period: str | None = Field(None, description="The time period this event covers (e.g., 'week', 'month'). Only filled when the event uses a period strike (mutually exclusive with strike_date).")
     markets: list[Market] | None = Field(None, description="Array of markets associated with this event. Only populated when 'with_nested_markets=true' is specified in the request.")

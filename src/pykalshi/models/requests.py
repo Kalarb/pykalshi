@@ -62,6 +62,7 @@ class CreateRFQRequest(BaseModel):
     market_ticker: str = Field(..., description="The ticker of the market for which to create an RFQ")
     contracts: int | None = Field(None, description="The number of contracts for the RFQ. Whole contracts only. Contracts may be provided via contracts or contracts_fp; if both provided they must match.")
     contracts_fp: str | None = Field(None, description="String representation of the number of contracts for the RFQ. Contracts may be provided via contracts or contracts_fp; if both provided they must match.")
+    target_cost_centi_cents: int | None = Field(None, description="DEPRECATED: The target cost for the RFQ in centi-cents. Use target_cost_dollars instead.", deprecated=True)
     target_cost_dollars: str | None = Field(None, description="The target cost for the RFQ in dollars")
     rest_remainder: bool = Field(..., description="Whether to rest the remainder of the RFQ after execution")
     replace_existing: bool | None = Field(None, description="Whether to delete existing RFQs as part of this RFQ's creation")
@@ -119,6 +120,7 @@ class BatchCreateOrdersRequest(BaseModel):
 class BatchCancelOrdersRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
+    ids: list[str] | None = Field(None, description="An array of order IDs to cancel", deprecated=True)
     orders: list[BatchCancelOrdersRequestOrder] | None = Field(None, description="An array of orders to cancel, each optionally specifying a subaccount")
 
 

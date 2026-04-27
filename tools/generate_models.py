@@ -30,6 +30,18 @@ TYPE_ALIASES = {
     "FixedPointCount": "str",
 }
 
+# Fields the OpenAPI spec marks as required but the real API returns null for.
+# Keyed by (schema_name, field_name). Forces the field to be nullable with a
+# None default, regardless of what the spec says. Verified against production
+# responses — the spec is simply wrong for these fields.
+NULLABLE_OVERRIDES: set[tuple[str, str]] = {
+    ("Series", "tags"),
+    ("Series", "settlement_sources"),
+    ("Series", "contract_url"),
+    ("Series", "contract_terms_url"),
+    ("Series", "additional_prohibitions"),
+}
+
 
 def fetch_spec() -> dict[str, Any]:
     """Fetch the OpenAPI spec from Kalshi docs."""
@@ -147,12 +159,14 @@ def generate_model(
         return "\n".join(lines)
 
     for prop_name, prop_schema in properties.items():
-        if prop_schema.get("deprecated", False):
-            continue
-
         is_required = prop_name in required_set
-        py_type = resolve_type(prop_schema, required=is_required, included_names=included_names)
-        default = resolve_default(py_type, is_required)
+        is_deprecated = prop_schema.get("deprecated", False)
+
+        # Force nullable for fields the spec gets wrong
+        force_nullable = (name, prop_name) in NULLABLE_OVERRIDES
+        effective_required = is_required and not force_nullable
+        py_type = resolve_type(prop_schema, required=effective_required, included_names=included_names)
+        default = resolve_default(py_type, effective_required)
         description = prop_schema.get("description", "").strip()
 
         # Escape quotes in descriptions
@@ -168,13 +182,15 @@ def generate_model(
             field_name = "class_"
 
         # Build Field() kwargs
-        if is_alias or description:
+        if is_alias or description or is_deprecated:
             default_val = default.strip(" =") or "..."
             field_kwargs = [default_val]
             if is_alias:
                 field_kwargs.append(f'alias="{prop_name}"')
             if description:
                 field_kwargs.append(f'description="{description}"')
+            if is_deprecated:
+                field_kwargs.append("deprecated=True")
             lines.append(f"    {field_name}: {py_type} = Field({', '.join(field_kwargs)})")
         else:
             lines.append(f"    {field_name}: {py_type}{default}")
@@ -347,7 +363,7 @@ def write_models(
     needs_field = False
     for schema in schemas.values():
         for prop_name, prop in schema.get("properties", {}).items():
-            if prop_name in ("type", "class") or prop.get("description"):
+            if prop_name in ("type", "class") or prop.get("description") or prop.get("deprecated"):
                 needs_field = True
                 break
         if needs_field:
