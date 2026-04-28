@@ -26,13 +26,10 @@ jobs:
       - name: Determine bump type and compute new version
         id: bump
         run: |
-          msg=$(cat << 'COMMIT_MSG_EOF'
-          ${{ github.event.head_commit.message }}
-          COMMIT_MSG_EOF
-          )
+          msg="${{ github.event.head_commit.message }}"
 
-          # Extract conventional commit type from first line
-          type=$(echo "$msg" | head -1 | sed -n 's/^\([a-z]*\).*/\1/p')
+          # Extract conventional commit type from first line (strip leading whitespace)
+          type=$(echo "$msg" | head -1 | sed -n 's/^[[:space:]]*\([a-z]*\).*/\1/p')
 
           # Skip version bump for non-functional changes
           case "$type" in
@@ -51,7 +48,7 @@ jobs:
           esac
 
           # Determine bump level
-          if echo "$msg" | grep -qP 'BREAKING CHANGE:' || echo "$msg" | head -1 | grep -qP '^[a-z]+(\(.*\))?!:'; then
+          if echo "$msg" | grep -qP 'BREAKING CHANGE:' || echo "$msg" | head -1 | grep -qP '^\s*[a-z]+(\(.*\))?!:'; then
             bump="major"
           elif [ "$type" = "feat" ]; then
             bump="minor"
