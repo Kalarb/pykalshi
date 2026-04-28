@@ -341,7 +341,7 @@ Every implemented endpoint has a unit test (mock transport). Integration tests h
 | `remove_market()` | Unsubscribe market from channels | Y | Y | Y | |
 | `unsubscribe_all()` | Unsubscribe from everything | Y | Y | Y | |
 | `request_snapshot()` | Request orderbook snapshot | Y | Y | Y | `get_snapshot` action |
-| `resubscribe_channel()` | Recover from sequence gap | Y | Y | | called after `KalshiSequenceGapError` |
+| `resubscribe_channel()` | Recover from sequence gap | Y | Y | Y | called after `KalshiSequenceGapError` |
 
 ## Architecture
 
