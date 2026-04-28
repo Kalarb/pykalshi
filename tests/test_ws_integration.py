@@ -383,6 +383,39 @@ class TestWsSubscriptionOps:
             await http.close()
 
     @pytest.mark.asyncio
+    async def test_ws_resubscribe_channel(self) -> None:
+        collector = MessageCollector()
+        http = _make_http_client()
+        ws = _make_ws_client(collector)
+        try:
+            ticker = await _get_btc15m_ticker(http)
+            await ws.connect()
+            asyncio.create_task(ws.listener_loop())
+
+            # Subscribe and wait for initial snapshot
+            await ws.add_market(ticker, ["orderbook_delta"])
+            await collector.wait_for_type("orderbook_snapshot", timeout=15)
+            original_sid = ws.channels["orderbook_delta"].sid
+            assert original_sid is not None
+
+            # Clear collector and resubscribe the channel
+            collector.messages.clear()
+            await ws.resubscribe_channel("orderbook_delta")
+
+            # Wait for new subscription confirmation
+            await collector.wait_for_subscribed(timeout=10)
+            new_sid = ws.channels["orderbook_delta"].sid
+            assert new_sid is not None
+            assert new_sid != original_sid
+
+            # Verify data resumes — new snapshot arrives
+            snapshot = await collector.wait_for_type("orderbook_snapshot", timeout=15)
+            assert snapshot["msg"]["market_ticker"] == ticker
+        finally:
+            await ws.close()
+            await http.close()
+
+    @pytest.mark.asyncio
     async def test_ws_request_snapshot(self) -> None:
         collector = MessageCollector()
         http = _make_http_client()
