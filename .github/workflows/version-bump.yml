@@ -1,0 +1,128 @@
+name: Version Bump & Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  version-bump:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+      bumped: ${{ steps.bump.outputs.bumped }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Determine bump type and compute new version
+        id: bump
+        run: |
+          msg=$(cat << 'COMMIT_MSG_EOF'
+          ${{ github.event.head_commit.message }}
+          COMMIT_MSG_EOF
+          )
+
+          # Extract conventional commit type from first line
+          type=$(echo "$msg" | head -1 | sed -n 's/^\([a-z]*\).*/\1/p')
+
+          # Skip version bump for non-functional changes
+          case "$type" in
+            docs|ci|test|chore|style)
+              echo "bumped=false" >> "$GITHUB_OUTPUT"
+              echo "Skipping version bump for commit type: $type"
+              exit 0
+              ;;
+            feat|fix|refactor|perf)
+              ;; # continue to bump
+            *)
+              echo "bumped=false" >> "$GITHUB_OUTPUT"
+              echo "Skipping version bump for unrecognized type: $type"
+              exit 0
+              ;;
+          esac
+
+          # Determine bump level
+          if echo "$msg" | grep -qP 'BREAKING CHANGE:' || echo "$msg" | head -1 | grep -qP '^[a-z]+(\(.*\))?!:'; then
+            bump="major"
+          elif [ "$type" = "feat" ]; then
+            bump="minor"
+          else
+            bump="patch"
+          fi
+
+          # Read current version
+          current=$(grep -oP '(?<=__version__ = ")[^"]+' src/pykalshi/_version.py)
+          IFS='.' read -r major minor patch <<< "$current"
+
+          # Compute new version
+          case "$bump" in
+            major) new="$((major+1)).0.0" ;;
+            minor) new="${major}.$((minor+1)).0" ;;
+            patch) new="${major}.${minor}.$((patch+1))" ;;
+          esac
+
+          echo "new_version=${new}" >> "$GITHUB_OUTPUT"
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
+          echo "Bumping $current -> $new ($bump from $type)"
+
+      - name: Update version file
+        if: steps.bump.outputs.bumped == 'true'
+        run: |
+          echo "__version__ = \"${{ steps.bump.outputs.new_version }}\"" > src/pykalshi/_version.py
+
+      - name: Commit and push version bump
+        if: steps.bump.outputs.bumped == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase
+          git add src/pykalshi/_version.py
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+          git push
+
+  release:
+    needs: version-bump
+    if: needs.version-bump.outputs.bumped == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Build package
+        run: uv build
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          tag="v${{ needs.version-bump.outputs.new_version }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists, skipping"
+            exit 1
+          fi
+          git tag "$tag"
+          git push origin "$tag"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-bump.outputs.new_version }}
+          name: v${{ needs.version-bump.outputs.new_version }}
+          generate_release_notes: true
+          files: dist/*

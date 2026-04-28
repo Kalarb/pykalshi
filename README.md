@@ -313,36 +313,35 @@ Every implemented endpoint has a unit test (mock transport). Integration tests h
 
 ### WebSocket
 
-#### Unit Tests
+#### Channels
 
-| Check | Status |
-|---|:---:|
-| All 17 message types in `MSG_TYPE_TO_CHANNEL` | Y |
-| All 11 channels referenced | Y |
-| `event_lifecycle` multi-channel handling | Y |
-| Message routing + sequence tracking (7 channel types) | Y |
-| Subscription handshake (SID mapping) | Y |
-| Callback invocation | Y |
-| Unknown message type passthrough | Y |
-| Validated against live AsyncAPI spec | Y |
+| Channel | Auth | Message Types | Impl | Unit | Integration | Notes |
+|---|:---:|---|:---:|:---:|:---:|---|
+| `orderbook_delta` | | `orderbook_snapshot`, `orderbook_delta` | Y | Y | Y | sequence tracking |
+| `ticker` | | `ticker` | Y | Y | Y | price/volume/OI updates |
+| `trade` | | `trade` | Y | Y | Y | public trade notifications |
+| `fill` | Y | `fill` | Y | Y | Y | user fill notifications |
+| `market_positions` | Y | `market_position` | Y | Y | Y | real-time position updates |
+| `user_orders` | Y | `user_order` | Y | Y | Y | order state changes |
+| `market_lifecycle_v2` | | `market_lifecycle_v2`, `event_lifecycle` | Y | Y | Y | may be flaky |
+| `multivariate_market_lifecycle` | | `multivariate_market_lifecycle`, `event_lifecycle` | Y | Y | | |
+| `multivariate` | | `multivariate_lookup` | Y | Y | | |
+| `communications` | Y | `rfq_created`, `rfq_deleted`, `quote_created`, `quote_accepted`, `quote_executed` | Y | Y | Y | RFQ/quote notifications |
+| `order_group_updates` | Y | `order_group_updates` | Y | Y | | |
 
-#### Integration Tests (PROD)
+#### Client Operations
 
-| Test | Channel/Operation | Verified |
-|---|---|---|
-| `test_ws_connect_and_receive_orderbook` | `orderbook_delta` subscribe + snapshot | Data received |
-| `test_ws_receive_ticker` | `ticker` subscribe + message | Data received |
-| `test_ws_receive_trade` | `trade` subscribe + message | Data received |
-| `test_ws_subscribe_fill` | `fill` subscribe | SID received |
-| `test_ws_subscribe_market_positions` | `market_positions` subscribe | SID received |
-| `test_ws_subscribe_market_lifecycle` | `market_lifecycle_v2` subscribe + wait | Data received (may be flaky) |
-| `test_ws_subscribe_user_orders` | `user_orders` subscribe | SID received |
-| `test_ws_subscribe_communications` | `communications` subscribe | SID received |
-| `test_ws_add_market` | `add_market` (KXBTC15M + KXBTCD) | Snapshot for added market |
-| `test_ws_remove_market` | `remove_market` | No data for removed market |
-| `test_ws_unsubscribe_all` | `unsubscribe_all` | No data after unsub |
-| `test_ws_multi_channel_subscribe` | Multi-channel (orderbook + ticker) | Both types received |
-| `test_ws_request_snapshot` | `request_snapshot` (get_snapshot) | Second snapshot received |
+| Method | Purpose | Impl | Unit | Integration | Notes |
+|---|---|:---:|:---:|:---:|---|
+| `connect()` | Establish WS connection + auth | Y | Y | Y | |
+| `close()` | Gracefully close connection | Y | Y | Y | |
+| `listener_loop()` | Read messages with auto-reconnect | Y | Y | Y | raises `KalshiSequenceGapError` on gaps |
+| `add_market()` | Subscribe market to channels | Y | Y | Y | |
+| `add_markets()` | Batch subscribe markets | Y | Y | Y | |
+| `remove_market()` | Unsubscribe market from channels | Y | Y | Y | |
+| `unsubscribe_all()` | Unsubscribe from everything | Y | Y | Y | |
+| `request_snapshot()` | Request orderbook snapshot | Y | Y | Y | `get_snapshot` action |
+| `resubscribe_channel()` | Recover from sequence gap | Y | Y | | called after `KalshiSequenceGapError` |
 
 ## Architecture
 
