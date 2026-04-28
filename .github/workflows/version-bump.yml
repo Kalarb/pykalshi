@@ -20,6 +20,8 @@ jobs:
       bumped: ${{ steps.bump.outputs.bumped }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Determine bump type and compute new version
         id: bump
@@ -97,6 +99,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: main
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
