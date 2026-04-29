@@ -140,7 +140,7 @@ async def get_forecast_percentile_history(
 ) -> dict[str, Any]:
     """Get Event Forecast Percentile History.
     
-    GET /trade-api/v2/series/{s}/events/{t}/forecast_percentile_history
+    GET /trade-api/v2/series/{series_ticker}/events/{ticker}/forecast_percentile_history
     
     Endpoint for getting the historical raw and formatted forecast numbers for an event at
 specific percentiles.
