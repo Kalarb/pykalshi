@@ -24,26 +24,8 @@ SKIPPED_PATH_PREFIXES = {
 }
 
 # Endpoints in the spec that we intentionally do not implement.
-# Each entry should have a comment explaining why.
-KNOWN_MISSING: set[tuple[str, str]] = {
-    # v2 (event-market) order endpoints — not yet implemented
-    ("POST", "/trade-api/v2/portfolio/events/orders"),
-    ("DELETE", "/trade-api/v2/portfolio/events/orders/{order_id}"),
-    ("POST", "/trade-api/v2/portfolio/events/orders/{order_id}/amend"),
-    ("POST", "/trade-api/v2/portfolio/events/orders/{order_id}/decrease"),
-    ("POST", "/trade-api/v2/portfolio/events/orders/batched"),
-    ("DELETE", "/trade-api/v2/portfolio/events/orders/batched"),
-    # Multivariate event collections — not yet implemented
-    ("GET", "/trade-api/v2/multivariate_event_collections"),
-    ("GET", "/trade-api/v2/multivariate_event_collections/{collection_ticker}"),
-    ("GET", "/trade-api/v2/multivariate_event_collections/{collection_ticker}/lookup"),
-    ("POST", "/trade-api/v2/multivariate_event_collections/{collection_ticker}"),
-    ("PUT", "/trade-api/v2/multivariate_event_collections/{collection_ticker}/lookup"),
-    # Batch market candlesticks — not yet implemented
-    ("GET", "/trade-api/v2/markets/candlesticks"),
-    # Quote confirmation — not yet implemented
-    ("PUT", "/trade-api/v2/communications/quotes/{quote_id}/confirm"),
-}
+# Empty — we want the test to fail on any missing endpoint so gaps are visible.
+KNOWN_MISSING: set[tuple[str, str]] = set()
 
 _ENDPOINT_RE = re.compile(
     r"^\s*(GET|POST|PUT|DELETE|PATCH)\s+(/trade-api/v2\S+)", re.MULTILINE
