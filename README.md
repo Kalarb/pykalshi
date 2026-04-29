@@ -1,10 +1,10 @@
 ![REST Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/rest-unit-tests.yml/badge.svg)
 ![REST Integration](https://github.com/Kalarb/pykalshi/actions/workflows/rest-integration.yml/badge.svg)
-![OpenAPI Validation](https://github.com/Kalarb/pykalshi/actions/workflows/openapi-validation.yml/badge.svg)
+[![OpenAPI](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/yardboy27/65579a629076066fcbf09520ca76301a/raw/openapi-status.json)](https://github.com/Kalarb/pykalshi/actions/workflows/openapi-validation.yml)
 
 ![WS Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/ws-unit-tests.yml/badge.svg)
 ![WS Integration](https://github.com/Kalarb/pykalshi/actions/workflows/ws-integration.yml/badge.svg)
-![AsyncAPI Validation](https://github.com/Kalarb/pykalshi/actions/workflows/asyncapi-validation.yml/badge.svg)
+[![AsyncAPI](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/yardboy27/65579a629076066fcbf09520ca76301a/raw/asyncapi-status.json)](https://github.com/Kalarb/pykalshi/actions/workflows/asyncapi-validation.yml)
 
 ![Lint](https://github.com/Kalarb/pykalshi/actions/workflows/lint.yml/badge.svg)
 

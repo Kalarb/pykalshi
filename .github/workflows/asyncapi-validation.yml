@@ -22,4 +22,16 @@ jobs:
         run: uv sync --extra testing
 
       - name: Validate WS channels against AsyncAPI spec
+        id: validate
+        continue-on-error: true
         run: uv run pytest tests/test_asyncapi_validation.py -v -s
+
+      - name: Update badge
+        uses: Schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 65579a629076066fcbf09520ca76301a
+          filename: asyncapi-status.json
+          label: AsyncAPI
+          message: ${{ steps.validate.outcome == 'success' && 'Up-to-date' || 'Behind' }}
+          color: ${{ steps.validate.outcome == 'success' && 'green' || 'yellow' }}
