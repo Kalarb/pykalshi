@@ -16,15 +16,23 @@ from .exceptions import KalshiAPIError, KalshiRateLimitError
 from .models.core import ExchangeStatus
 from .models.responses import (
     AmendOrderResponse,
+    AmendOrderV2Response,
     BatchCancelOrdersResponse,
+    BatchCancelOrdersV2Response,
     BatchCreateOrdersResponse,
+    BatchCreateOrdersV2Response,
+    BatchGetMarketCandlesticksResponse,
     CancelOrderResponse,
+    CancelOrderV2Response,
+    CreateMarketInMultivariateEventCollectionResponse,
+    CreateOrderV2Response,
     CreateApiKeyResponse,
     CreateOrderGroupResponse,
     CreateOrderResponse,
     CreateQuoteResponse,
     CreateRFQResponse,
     DecreaseOrderResponse,
+    DecreaseOrderV2Response,
     EmptyResponse,
     GenerateApiKeyResponse,
     GetAccountApiLimitsResponse,
@@ -54,6 +62,9 @@ from .models.responses import (
     GetMarketsResponse,
     GetMilestoneResponse,
     GetMilestonesResponse,
+    GetMultivariateEventCollectionLookupHistoryResponse,
+    GetMultivariateEventCollectionResponse,
+    GetMultivariateEventCollectionsResponse,
     GetMultivariateEventsResponse,
     GetOrderGroupResponse,
     GetOrderGroupsResponse,
@@ -75,6 +86,7 @@ from .models.responses import (
     GetTagsForSeriesCategoriesResponse,
     GetTradesResponse,
     GetUserDataTimestampResponse,
+    LookupTickersForMarketInMultivariateEventCollectionResponse,
 )
 from .rate_limiter import ReadWriteTokenBucket
 from ._observability import get_meter, get_tracer
@@ -82,6 +94,7 @@ from .api import (
     account,
     api_keys,
     communications,
+    event_orders,
     events,
     exchange,
     historical,
@@ -89,6 +102,7 @@ from .api import (
     live_data,
     markets,
     milestones,
+    multivariate_collections,
     order_groups,
     orders,
     portfolio,
@@ -419,6 +433,12 @@ class KalshiHttpClient:
         data = await markets.get_market_orderbooks(self, tickers)
         return GetMarketOrderbooksResponse.model_validate(data)
 
+    async def get_batch_market_candlesticks(
+        self, market_tickers: list[str], **kwargs: Any
+    ) -> BatchGetMarketCandlesticksResponse:
+        data = await markets.get_batch_market_candlesticks(self, market_tickers, **kwargs)
+        return BatchGetMarketCandlesticksResponse.model_validate(data)
+
     async def get_market_candlesticks(
         self, series_ticker: str, ticker: str, **kwargs: Any
     ) -> GetMarketCandlesticksResponse:
@@ -578,6 +598,10 @@ class KalshiHttpClient:
         data = await communications.delete_quote(self, quote_id)
         return EmptyResponse.model_validate(data)
 
+    async def confirm_quote(self, quote_id: str) -> EmptyResponse:
+        data = await communications.confirm_quote(self, quote_id)
+        return EmptyResponse.model_validate(data)
+
     async def accept_quote(self, quote_id: str) -> EmptyResponse:
         data = await communications.accept_quote(self, quote_id)
         return EmptyResponse.model_validate(data)
@@ -629,3 +653,73 @@ class KalshiHttpClient:
     async def get_incentive_programs(self, **kwargs: Any) -> GetIncentiveProgramsResponse:
         data = await incentive_programs.get_incentive_programs(self, **kwargs)
         return GetIncentiveProgramsResponse.model_validate(data)
+
+    # --- Event Orders (V2) ---
+
+    async def create_event_order(self, **kwargs: Any) -> CreateOrderV2Response:
+        data = await event_orders.create_event_order(self, **kwargs)
+        return CreateOrderV2Response.model_validate(data)
+
+    async def cancel_event_order(self, order_id: str) -> CancelOrderV2Response:
+        data = await event_orders.cancel_event_order(self, order_id)
+        return CancelOrderV2Response.model_validate(data)
+
+    async def amend_event_order(self, order_id: str, **kwargs: Any) -> AmendOrderV2Response:
+        data = await event_orders.amend_event_order(self, order_id, **kwargs)
+        return AmendOrderV2Response.model_validate(data)
+
+    async def decrease_event_order(self, order_id: str, **kwargs: Any) -> DecreaseOrderV2Response:
+        data = await event_orders.decrease_event_order(self, order_id, **kwargs)
+        return DecreaseOrderV2Response.model_validate(data)
+
+    async def batch_create_event_orders(
+        self, orders_list: list[dict[str, Any]]
+    ) -> BatchCreateOrdersV2Response:
+        data = await event_orders.batch_create_event_orders(self, orders_list)
+        return BatchCreateOrdersV2Response.model_validate(data)
+
+    async def batch_cancel_event_orders(
+        self, orders_list: list[dict[str, Any]]
+    ) -> BatchCancelOrdersV2Response:
+        data = await event_orders.batch_cancel_event_orders(self, orders_list)
+        return BatchCancelOrdersV2Response.model_validate(data)
+
+    # --- Multivariate Event Collections ---
+
+    async def get_multivariate_event_collections(
+        self, **kwargs: Any
+    ) -> GetMultivariateEventCollectionsResponse:
+        data = await multivariate_collections.get_multivariate_event_collections(self, **kwargs)
+        return GetMultivariateEventCollectionsResponse.model_validate(data)
+
+    async def get_multivariate_event_collection(
+        self, collection_ticker: str
+    ) -> GetMultivariateEventCollectionResponse:
+        data = await multivariate_collections.get_multivariate_event_collection(
+            self, collection_ticker
+        )
+        return GetMultivariateEventCollectionResponse.model_validate(data)
+
+    async def get_multivariate_event_collection_lookup_history(
+        self, collection_ticker: str, **kwargs: Any
+    ) -> GetMultivariateEventCollectionLookupHistoryResponse:
+        data = await multivariate_collections.get_multivariate_event_collection_lookup_history(
+            self, collection_ticker, **kwargs
+        )
+        return GetMultivariateEventCollectionLookupHistoryResponse.model_validate(data)
+
+    async def create_market_in_multivariate_event_collection(
+        self, collection_ticker: str, **kwargs: Any
+    ) -> CreateMarketInMultivariateEventCollectionResponse:
+        data = await multivariate_collections.create_market_in_multivariate_event_collection(
+            self, collection_ticker, **kwargs
+        )
+        return CreateMarketInMultivariateEventCollectionResponse.model_validate(data)
+
+    async def lookup_tickers_in_multivariate_event_collection(
+        self, collection_ticker: str, **kwargs: Any
+    ) -> LookupTickersForMarketInMultivariateEventCollectionResponse:
+        data = await multivariate_collections.lookup_tickers_in_multivariate_event_collection(
+            self, collection_ticker, **kwargs
+        )
+        return LookupTickersForMarketInMultivariateEventCollectionResponse.model_validate(data)

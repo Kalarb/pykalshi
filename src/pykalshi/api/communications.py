@@ -180,6 +180,20 @@ async def delete_quote(
     return await client.delete(f"{COMMUNICATIONS_URL}/quotes/{quote_id}")
 
 
+async def confirm_quote(
+    client: KalshiHttpClient, quote_id: str
+) -> dict[str, Any]:
+    """Confirm Quote.
+
+    PUT /trade-api/v2/communications/quotes/{quote_id}/confirm
+
+    Endpoint for confirming a quote.
+    """
+    return await client.put(
+        f"{COMMUNICATIONS_URL}/quotes/{quote_id}/confirm", body={}
+    )
+
+
 async def accept_quote(
     client: KalshiHttpClient, quote_id: str
 ) -> dict[str, Any]:

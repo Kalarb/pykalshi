@@ -7,6 +7,13 @@ from __future__ import annotations
 from enum import Enum
 
 
+class BookSide(str, Enum):
+    """Side of the book for an order or trade. For event markets, this refers to the YES leg only: `bid` means buy YES, `ask` means sell YES. (Selling YES is economically equivalent to buying NO at `1 - price`, but this endpoint quotes everything from the YES side.)"""
+
+    BID = "bid"
+    ASK = "ask"
+
+
 class ExchangeInstance(str, Enum):
     """The exchange instance type"""
 
@@ -23,7 +30,8 @@ class OrderStatus(str, Enum):
 
 
 class SelfTradePreventionType(str, Enum):
-    """The self-trade prevention type for orders"""
+    """The self-trade prevention type for orders. `taker_at_cross` cancels the taker order when it would trade against another order from the same user; execution stops and any partial fills already matched are executed. `maker` cancels the resting maker order and continues matching; after execution, any remaining taker quantity is canceled and any fills are executed.
+"""
 
     TAKER_AT_CROSS = "taker_at_cross"
     MAKER = "maker"

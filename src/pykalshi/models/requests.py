@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
-from .enums import SelfTradePreventionType
+from .enums import BookSide, SelfTradePreventionType
 from .core import BatchCancelOrdersRequestOrder, TickerPair
 
 
@@ -149,6 +151,53 @@ class DecreaseOrderRequest(BaseModel):
     reduce_by_fp: str | None = Field(None, description="String representation of the number of contracts to reduce by. Reduce-by may be provided via reduce_by or reduce_by_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
     reduce_to: int | None = Field(None, description="Number of contracts to reduce to (whole contracts only). Reduce-to may be provided via reduce_to or reduce_to_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
     reduce_to_fp: str | None = Field(None, description="String representation of the number of contracts to reduce to. Reduce-to may be provided via reduce_to or reduce_to_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
+
+
+class CreateOrderV2Request(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    ticker: str
+    client_order_id: str
+    side: BookSide
+    count: str = Field(..., description="String representation of the order quantity in contracts.")
+    price: str = Field(..., description="Price for the order in fixed-point dollars.")
+    expiration_time: int | None = None
+    time_in_force: str
+    post_only: bool | None = None
+    self_trade_prevention_type: SelfTradePreventionType
+    cancel_order_on_pause: bool | None = Field(None, description="If this flag is set to true, the order will be canceled if the order is open and trading on the exchange is paused for any reason.")
+    reduce_only: bool | None = Field(None, description="Specifies whether the order place count should be capped by the member's current position.")
+    subaccount: int | None = Field(None, description="The subaccount number to use for this order. 0 is the primary subaccount.")
+    order_group_id: str | None = Field(None, description="The order group this order is part of")
+
+
+class DecreaseOrderV2Request(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    reduce_to: str = Field(..., description="String representation of the number of contracts to reduce to.")
+
+
+class AmendOrderV2Request(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    ticker: str = Field(..., description="Market ticker")
+    side: BookSide = Field(..., description="Side of the order")
+    price: str = Field(..., description="Updated price for the order in fixed-point dollars.")
+    count: str = Field(..., description="String representation of the updated quantity for the order.")
+    client_order_id: str | None = Field(None, description="The original client-specified order ID to be amended")
+    updated_client_order_id: str | None = Field(None, description="The new client-specified order ID after amendment")
+
+
+class BatchCreateOrdersV2Request(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    orders: list[CreateOrderV2Request]
+
+
+class BatchCancelOrdersV2Request(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    orders: list[dict[str, Any]] = Field(..., description="An array of orders to cancel, each optionally specifying a subaccount.")
 
 
 class LookupTickersForMarketInMultivariateEventCollectionRequest(BaseModel):
