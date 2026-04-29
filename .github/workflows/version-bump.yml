@@ -31,8 +31,10 @@ jobs:
 
       - name: Determine bump type and compute new version
         id: bump
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          msg="${{ github.event.head_commit.message }}"
+          msg="$COMMIT_MSG"
 
           # Extract conventional commit type from first line (strip leading whitespace)
           type=$(echo "$msg" | head -1 | sed -n 's/^[[:space:]]*\([a-z]*\).*/\1/p')
