@@ -108,7 +108,7 @@ class TestAccountIntegration:
     @pytest.mark.asyncio
     async def test_get_api_limits(self, client: KalshiHttpClient) -> None:
         result = await client.get_api_limits()
-        assert result.read_limit > 0
+        assert result.read.refill_rate > 0
 
     @pytest.mark.asyncio
     async def test_get_endpoint_costs(self, client: KalshiHttpClient) -> None:
