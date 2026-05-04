@@ -35,3 +35,9 @@ class SelfTradePreventionType(str, Enum):
 
     TAKER_AT_CROSS = "taker_at_cross"
     MAKER = "maker"
+
+
+class UserFilter(str, Enum):
+    """Omit or leave empty to return all results. Use `self` to filter by the authenticated user."""
+
+    SELF = "self"

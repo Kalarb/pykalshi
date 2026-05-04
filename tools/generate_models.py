@@ -171,9 +171,9 @@ def generate_model(
         default = resolve_default(py_type, effective_required)
         description = prop_schema.get("description", "").strip()
 
-        # Escape quotes in descriptions
+        # Escape quotes and newlines in descriptions
         if description:
-            description = description.replace("\\", "\\\\").replace('"', '\\"')
+            description = description.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
 
         # Handle reserved words
         field_name = prop_name
@@ -428,22 +428,20 @@ def write_init(
 
     all_names: list[str] = []
 
-    if enums:
-        names = sorted(enums.keys())
+    for module, schemas in [
+        ("enums", enums),
+        ("core", core),
+        ("requests", requests),
+        ("responses", responses),
+    ]:
+        if not schemas:
+            continue
+        names = sorted(schemas.keys())
         all_names.extend(names)
-        lines.append(f"from .enums import {', '.join(names)}")
-    if core:
-        names = sorted(core.keys())
-        all_names.extend(names)
-        lines.append(f"from .core import {', '.join(names)}")
-    if requests:
-        names = sorted(requests.keys())
-        all_names.extend(names)
-        lines.append(f"from .requests import {', '.join(names)}")
-    if responses:
-        names = sorted(responses.keys())
-        all_names.extend(names)
-        lines.append(f"from .responses import {', '.join(names)}")
+        lines.append(f"from .{module} import (")
+        for name in names:
+            lines.append(f"    {name},")
+        lines.append(")")
 
     lines.append("")
     lines.append("__all__ = [")
