@@ -11,15 +11,23 @@ from typing import Any, Protocol
 from .models.core import ExchangeStatus
 from .models.responses import (
     AmendOrderResponse,
+    AmendOrderV2Response,
     BatchCancelOrdersResponse,
+    BatchCancelOrdersV2Response,
     BatchCreateOrdersResponse,
+    BatchCreateOrdersV2Response,
+    BatchGetMarketCandlesticksResponse,
     CancelOrderResponse,
+    CancelOrderV2Response,
+    CreateMarketInMultivariateEventCollectionResponse,
+    CreateOrderV2Response,
     CreateApiKeyResponse,
     CreateOrderGroupResponse,
     CreateOrderResponse,
     CreateQuoteResponse,
     CreateRFQResponse,
     DecreaseOrderResponse,
+    DecreaseOrderV2Response,
     EmptyResponse,
     GenerateApiKeyResponse,
     GetAccountApiLimitsResponse,
@@ -49,6 +57,9 @@ from .models.responses import (
     GetMarketsResponse,
     GetMilestoneResponse,
     GetMilestonesResponse,
+    GetMultivariateEventCollectionLookupHistoryResponse,
+    GetMultivariateEventCollectionResponse,
+    GetMultivariateEventCollectionsResponse,
     GetMultivariateEventsResponse,
     GetOrderGroupResponse,
     GetOrderGroupsResponse,
@@ -70,6 +81,7 @@ from .models.responses import (
     GetTagsForSeriesCategoriesResponse,
     GetTradesResponse,
     GetUserDataTimestampResponse,
+    LookupTickersForMarketInMultivariateEventCollectionResponse,
 )
 from .models.ws import Channel
 
@@ -132,6 +144,9 @@ class KalshiHttpClientProtocol(Protocol):
         self, ticker: str, **kwargs: Any
     ) -> GetMarketOrderbookResponse: ...
     async def get_market_orderbooks(self, tickers: list[str]) -> GetMarketOrderbooksResponse: ...
+    async def get_batch_market_candlesticks(
+        self, market_tickers: list[str], **kwargs: Any
+    ) -> BatchGetMarketCandlesticksResponse: ...
     async def get_market_candlesticks(
         self, series_ticker: str, ticker: str, **kwargs: Any
     ) -> GetMarketCandlesticksResponse: ...
@@ -189,6 +204,7 @@ class KalshiHttpClientProtocol(Protocol):
     async def create_quote(self, **kwargs: Any) -> CreateQuoteResponse: ...
     async def get_quote(self, quote_id: str) -> GetQuoteResponse: ...
     async def delete_quote(self, quote_id: str) -> EmptyResponse: ...
+    async def confirm_quote(self, quote_id: str) -> EmptyResponse: ...
     async def accept_quote(self, quote_id: str) -> EmptyResponse: ...
 
     # Live Data
@@ -215,6 +231,37 @@ class KalshiHttpClientProtocol(Protocol):
 
     # Incentive Programs
     async def get_incentive_programs(self, **kwargs: Any) -> GetIncentiveProgramsResponse: ...
+
+    # Event Orders (V2)
+    async def create_event_order(self, **kwargs: Any) -> CreateOrderV2Response: ...
+    async def cancel_event_order(self, order_id: str) -> CancelOrderV2Response: ...
+    async def amend_event_order(self, order_id: str, **kwargs: Any) -> AmendOrderV2Response: ...
+    async def decrease_event_order(
+        self, order_id: str, **kwargs: Any
+    ) -> DecreaseOrderV2Response: ...
+    async def batch_create_event_orders(
+        self, orders_list: list[dict[str, Any]]
+    ) -> BatchCreateOrdersV2Response: ...
+    async def batch_cancel_event_orders(
+        self, orders_list: list[dict[str, Any]]
+    ) -> BatchCancelOrdersV2Response: ...
+
+    # Multivariate Event Collections
+    async def get_multivariate_event_collections(
+        self, **kwargs: Any
+    ) -> GetMultivariateEventCollectionsResponse: ...
+    async def get_multivariate_event_collection(
+        self, collection_ticker: str
+    ) -> GetMultivariateEventCollectionResponse: ...
+    async def get_multivariate_event_collection_lookup_history(
+        self, collection_ticker: str, **kwargs: Any
+    ) -> GetMultivariateEventCollectionLookupHistoryResponse: ...
+    async def create_market_in_multivariate_event_collection(
+        self, collection_ticker: str, **kwargs: Any
+    ) -> CreateMarketInMultivariateEventCollectionResponse: ...
+    async def lookup_tickers_in_multivariate_event_collection(
+        self, collection_ticker: str, **kwargs: Any
+    ) -> LookupTickersForMarketInMultivariateEventCollectionResponse: ...
 
 
 class KalshiWebSocketClientProtocol(Protocol):

@@ -113,12 +113,14 @@ class TestAccount:
     @pytest.mark.asyncio
     async def test_get_api_limits(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/account/limits"): {
-            "usage_tier": "standard", "read_limit": 20, "write_limit": 10
+            "usage_tier": "standard",
+            "read": {"refill_rate": 20, "bucket_capacity": 20},
+            "write": {"refill_rate": 10, "bucket_capacity": 20},
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_api_limits()
-            assert result.read_limit == 20
-            assert result.write_limit == 10
+            assert result.read.refill_rate == 20
+            assert result.write.refill_rate == 10
 
     @pytest.mark.asyncio
     async def test_get_endpoint_costs(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
@@ -706,6 +708,177 @@ class TestIncentivePrograms:
 # =============================================================================
 # Model Dump (raw dict access still works)
 # =============================================================================
+
+
+# =============================================================================
+# Event Orders (V2)
+# =============================================================================
+
+
+class TestEventOrders:
+    @pytest.mark.asyncio
+    async def test_create_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("POST", "/trade-api/v2/portfolio/events/orders"): {
+            "order_id": "oid-1", "client_order_id": "c1",
+            "fill_count": "0", "remaining_count": "10",
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.create_event_order(
+                ticker="KXBTC-100K", client_order_id="c1", side="bid",
+                count="10", price="0.50", time_in_force="gtc",
+                self_trade_prevention_type="cancel_resting",
+            )
+            assert result.order_id == "oid-1"
+
+    @pytest.mark.asyncio
+    async def test_cancel_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("DELETE", "/trade-api/v2/portfolio/events/orders/oid-1"): {
+            "order_id": "oid-1", "reduced_by": "5",
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.cancel_event_order("oid-1")
+            assert result.order_id == "oid-1"
+            assert result.reduced_by == "5"
+
+    @pytest.mark.asyncio
+    async def test_amend_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("POST", "/trade-api/v2/portfolio/events/orders/oid-1/amend"): {
+            "order_id": "oid-1",
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.amend_event_order(
+                "oid-1", ticker="KXBTC-100K", side="bid",
+                price="0.55", count="10",
+            )
+            assert result.order_id == "oid-1"
+
+    @pytest.mark.asyncio
+    async def test_decrease_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("POST", "/trade-api/v2/portfolio/events/orders/oid-1/decrease"): {
+            "order_id": "oid-1", "remaining_count": "3",
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.decrease_event_order("oid-1", reduce_to="3")
+            assert result.remaining_count == "3"
+
+    @pytest.mark.asyncio
+    async def test_batch_create_event_orders(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("POST", "/trade-api/v2/portfolio/events/orders/batched"): {
+            "orders": [],
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.batch_create_event_orders([])
+            assert result.orders == []
+
+    @pytest.mark.asyncio
+    async def test_batch_cancel_event_orders(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("DELETE", "/trade-api/v2/portfolio/events/orders/batched"): {
+            "orders": [],
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.batch_cancel_event_orders([])
+            assert result.orders == []
+
+
+# =============================================================================
+# Multivariate Event Collections
+# =============================================================================
+
+
+MOCK_COLLECTION = {
+    "collection_ticker": "COL-1",
+    "series_ticker": "SER-1",
+    "title": "Test Collection",
+    "description": "A test collection",
+    "open_date": "2026-01-01",
+    "close_date": "2026-12-31",
+    "associated_events": [],
+    "associated_event_tickers": [],
+    "is_ordered": False,
+    "is_single_market_per_event": False,
+    "is_all_yes": False,
+    "size_min": 2,
+    "size_max": 5,
+    "functional_description": "Test function",
+}
+
+
+class TestMultivariateCollections:
+    @pytest.mark.asyncio
+    async def test_get_collections(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/multivariate_event_collections"): {
+            "multivariate_contracts": [MOCK_COLLECTION],
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_multivariate_event_collections()
+            assert len(result.multivariate_contracts) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_collection(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/multivariate_event_collections/COL-1"): {
+            "multivariate_contract": MOCK_COLLECTION,
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_multivariate_event_collection("COL-1")
+            assert result.multivariate_contract.collection_ticker == "COL-1"
+
+    @pytest.mark.asyncio
+    async def test_get_lookup_history(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/multivariate_event_collections/COL-1/lookup"): {
+            "lookup_points": [],
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_multivariate_event_collection_lookup_history(
+                "COL-1", lookback_seconds=3600,
+            )
+            assert result.lookup_points == []
+
+    @pytest.mark.asyncio
+    async def test_create_market_in_collection(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("POST", "/trade-api/v2/multivariate_event_collections/COL-1"): {
+            "event_ticker": "EVT-1",
+            "market_ticker": "MKT-1",
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.create_market_in_multivariate_event_collection("COL-1")
+            assert result.event_ticker == "EVT-1"
+
+    @pytest.mark.asyncio
+    async def test_lookup_tickers(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("PUT", "/trade-api/v2/multivariate_event_collections/COL-1/lookup"): {
+            "event_ticker": "EVT-1",
+            "market_ticker": "MKT-1",
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.lookup_tickers_in_multivariate_event_collection("COL-1")
+            assert result.event_ticker == "EVT-1"
+
+
+# =============================================================================
+# Batch Market Candlesticks & Confirm Quote
+# =============================================================================
+
+
+class TestBatchCandlesticks:
+    @pytest.mark.asyncio
+    async def test_get_batch_market_candlesticks(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("GET", "/trade-api/v2/markets/candlesticks"): {
+            "markets": [],
+        }}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.get_batch_market_candlesticks(
+                ["KXBTC-100K"], start_ts=1000, end_ts=2000, period_interval=60,
+            )
+            assert result.markets == []
+
+
+class TestConfirmQuote:
+    @pytest.mark.asyncio
+    async def test_confirm_quote(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {("PUT", "/trade-api/v2/communications/quotes/q1/confirm"): {}}
+        async with _client(creds, cfg, routes) as c:
+            result = await c.confirm_quote("q1")
+            assert result is not None
 
 
 class TestModelDump:

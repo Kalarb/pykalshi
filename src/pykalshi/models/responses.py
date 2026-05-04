@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .core import Announcement, ApiKey, EndpointTokenCost, EventData, EventPosition, Fill, ForecastPercentilesPoint, IncentiveProgram, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade
+from .core import Announcement, ApiKey, BucketLimit, EndpointTokenCost, EventData, EventPosition, Fill, ForecastPercentilesPoint, IncentiveProgram, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade
 
 
 class GetMarketCandlesticksHistoricalResponse(BaseModel):
@@ -49,7 +49,7 @@ class GenerateApiKeyResponse(BaseModel):
 class GetTagsForSeriesCategoriesResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    tags_by_categories: dict[str, list[str] | None] = Field(..., description="Mapping of series categories to their associated tags")
+    tags_by_categories: dict[str, list[str]] = Field(..., description="Mapping of series categories to their associated tags")
 
 
 class GetFiltersBySportsResponse(BaseModel):
@@ -62,9 +62,9 @@ class GetFiltersBySportsResponse(BaseModel):
 class GetAccountApiLimitsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    usage_tier: str = Field(..., description="User's API usage tier")
-    read_limit: int = Field(..., description="Maximum read requests per second")
-    write_limit: int = Field(..., description="Maximum write requests per second")
+    usage_tier: str = Field(..., description="User's API usage tier.")
+    read: BucketLimit
+    write: BucketLimit
 
 
 class GetAccountEndpointCostsResponse(BaseModel):
@@ -405,6 +405,56 @@ class DecreaseOrderResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     order: Order
+
+
+class CreateOrderV2Response(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    order_id: str
+    client_order_id: str | None = None
+    fill_count: str = Field(..., description="Number of contracts filled immediately upon placement.")
+    remaining_count: str = Field(..., description="Number of contracts remaining after placement. For IOC orders, this reflects the final state after unfilled contracts are canceled.")
+    average_fill_price: str | None = Field(None, description="Volume-weighted average fill price. Only present when fill_count > 0.")
+    average_fee_paid: str | None = Field(None, description="Volume-weighted average fee paid per contract for fills resulting from this request. Only present when fill_count > 0.")
+
+
+class CancelOrderV2Response(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    order_id: str
+    client_order_id: str | None = None
+    reduced_by: str = Field(..., description="Number of contracts that were canceled (i.e. the remaining count at time of cancellation).")
+
+
+class DecreaseOrderV2Response(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    order_id: str
+    client_order_id: str | None = None
+    remaining_count: str = Field(..., description="Number of contracts remaining after the decrease.")
+
+
+class AmendOrderV2Response(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    order_id: str
+    client_order_id: str | None = None
+    remaining_count: str | None = Field(None, description="Number of contracts remaining after the amend. Only present when the amend caused a fill or changed the resting size.")
+    fill_count: str | None = Field(None, description="Number of contracts filled as a result of the amend crossing the book. Only present when fills occurred or remaining size changed.")
+    average_fill_price: str | None = Field(None, description="Volume-weighted average fill price for fills resulting from the amend. Only present when fills occurred.")
+    average_fee_paid: str | None = Field(None, description="Volume-weighted average fee paid per contract for fills resulting from the amend. Only present when fills occurred.")
+
+
+class BatchCreateOrdersV2Response(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    orders: list[dict[str, Any]]
+
+
+class BatchCancelOrdersV2Response(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    orders: list[dict[str, Any]]
 
 
 class GetMultivariateEventCollectionResponse(BaseModel):

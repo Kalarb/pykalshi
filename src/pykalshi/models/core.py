@@ -11,6 +11,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from .enums import OrderStatus, SelfTradePreventionType
 
 
+class BidAskDistributionHistorical(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
+
+
 class PriceDistributionHistorical(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -20,15 +29,6 @@ class PriceDistributionHistorical(BaseModel):
     close: str | None = Field(None, description="Price of the last trade during the candlestick period (in dollars). Null if no trades occurred.")
     mean: str | None = Field(None, description="Volume-weighted average price during the candlestick period (in dollars). Null if no trades occurred.")
     previous: str | None = Field(None, description="Close price from the previous candlestick period (in dollars). Null if this is the first candlestick or no prior trade exists.")
-
-
-class BidAskDistributionHistorical(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestickHistorical(BaseModel):
@@ -61,6 +61,20 @@ class SportFilterDetails(BaseModel):
 
     scopes: list[str] = Field(..., description="List of scopes available for this sport")
     competitions: dict[str, ScopeList] = Field(..., description="Mapping of competitions to their scope lists")
+
+
+class BucketLimit(BaseModel):
+    """Token-bucket budget for one rate-limit bucket. Each request deducts
+tokens equal to its endpoint cost; the bucket refills at refill_rate
+tokens per second up to bucket_capacity. A request is allowed if the
+bucket holds enough tokens to cover its cost; otherwise the request
+is rejected with HTTP 429.
+"""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    refill_rate: int = Field(..., description="Tokens added to the bucket per second.")
+    bucket_capacity: int = Field(..., description="Maximum tokens the bucket can hold. When equal to refill_rate the bucket holds one second of budget; larger values represent burst headroom that idle clients accumulate and can spend in a single pulse (e.g. write buckets at non-Basic tiers hold two seconds of budget).")
 
 
 class EndpointTokenCost(BaseModel):
@@ -123,15 +137,6 @@ class Schedule(BaseModel):
     maintenance_windows: list[MaintenanceWindow] = Field(..., description="Scheduled maintenance windows, during which the exchange may be unavailable.")
 
 
-class BidAskDistribution(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
-
-
 class PriceDistribution(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -143,6 +148,15 @@ class PriceDistribution(BaseModel):
     previous_dollars: str | None = Field(None, description="Last traded YES contract price on the market before the candlestick period (in dollars). May be null if there were no trades before the period.")
     min_dollars: str | None = Field(None, description="Minimum close price of any market during the candlestick period (in dollars).")
     max_dollars: str | None = Field(None, description="Maximum close price of any market during the candlestick period (in dollars).")
+
+
+class BidAskDistribution(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestick(BaseModel):
@@ -286,6 +300,7 @@ class IncentiveProgram(BaseModel):
     market_id: str = Field(..., description="The unique identifier of the market associated with this incentive program")
     market_ticker: str = Field(..., description="The ticker symbol of the market associated with this incentive program")
     incentive_type: str = Field(..., description="Type of incentive program")
+    incentive_description: str = Field(..., description="Plain text description of the incentive program")
     start_date: str = Field(..., description="Start date of the incentive program")
     end_date: str = Field(..., description="End date of the incentive program")
     period_reward: int = Field(..., description="Total reward for the period in centi-cents")

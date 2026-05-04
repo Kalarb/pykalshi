@@ -140,6 +140,32 @@ organized from best to worst prices. Returns one orderbook per requested market 
     )
 
 
+async def get_batch_market_candlesticks(
+    client: KalshiHttpClient,
+    market_tickers: list[str],
+    *,
+    start_ts: int,
+    end_ts: int,
+    period_interval: int,
+    include_latest_before_start: Optional[bool] = None,
+) -> dict[str, Any]:
+    """Batch Get Market Candlesticks.
+
+    GET /trade-api/v2/markets/candlesticks
+
+    Get candlesticks for multiple markets in a single request.
+    """
+    params: dict[str, Any] = {
+        "market_tickers": ",".join(market_tickers),
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "period_interval": period_interval,
+    }
+    if include_latest_before_start is not None:
+        params["include_latest_before_start"] = include_latest_before_start
+    return await client.get(f"{MARKETS_URL}/candlesticks", params=params)
+
+
 async def get_market_candlesticks(
     client: KalshiHttpClient,
     series_ticker: str,
