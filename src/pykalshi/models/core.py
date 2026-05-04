@@ -137,6 +137,15 @@ class Schedule(BaseModel):
     maintenance_windows: list[MaintenanceWindow] = Field(..., description="Scheduled maintenance windows, during which the exchange may be unavailable.")
 
 
+class BidAskDistribution(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
+
+
 class PriceDistribution(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -148,15 +157,6 @@ class PriceDistribution(BaseModel):
     previous_dollars: str | None = Field(None, description="Last traded YES contract price on the market before the candlestick period (in dollars). May be null if there were no trades before the period.")
     min_dollars: str | None = Field(None, description="Minimum close price of any market during the candlestick period (in dollars).")
     max_dollars: str | None = Field(None, description="Maximum close price of any market during the candlestick period (in dollars).")
-
-
-class BidAskDistribution(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestick(BaseModel):
@@ -547,7 +547,7 @@ class Market(BaseModel):
     volume_24h_fp: str = Field(..., description="String representation of the 24h market volume in contracts")
     result: str
     can_close_early: bool
-    fractional_trading_enabled: bool
+    fractional_trading_enabled: bool = Field(..., description="Deprecated. This flag is always `true` and carries no information. Will be removed after a pre-announcement with the removal date.", deprecated=True)
     open_interest_fp: str = Field(..., description="String representation of the number of contracts bought on this market disconsidering netting")
     notional_value_dollars: str = Field(..., description="The total value of a single contract at settlement in dollars")
     previous_yes_bid_dollars: str = Field(..., description="Price for the highest YES buy offer on this market a day ago in dollars")
@@ -560,7 +560,6 @@ class Market(BaseModel):
     occurrence_datetime: str | None = Field(None, description="The recorded datetime when the underlying event occurred, if available")
     fee_waiver_expiration_time: str | None = Field(None, description="Time when this market's fee waiver expires")
     early_close_condition: str | None = Field(None, description="The condition under which the market can close early")
-    tick_size: int | None = Field(None, description="DEPRECATED: Use price_level_structure and price_ranges instead.", deprecated=True)
     strike_type: str | None = Field(None, description="Strike type defines how the market strike is defined and evaluated")
     floor_strike: float | None = Field(None, description="Minimum expiration value that leads to a YES settlement")
     cap_strike: float | None = Field(None, description="Maximum expiration value that leads to a YES settlement")
