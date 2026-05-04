@@ -284,11 +284,12 @@ class KalshiWebSocketClient:
             chan_state.markets.remove(market_ticker)
             if chan_state.sid is not None:
                 if len(chan_state.markets) == 0:
-                    await self._send_unsubscribe(chan_state.sid)
-                    self._sid_map.pop(chan_state.sid, None)
+                    old_sid = chan_state.sid
+                    self._sid_map.pop(old_sid, None)
                     chan_state.sid = None
                     chan_state.seq = 0
                     del self.channels[channel_name]
+                    await self._send_unsubscribe(old_sid)
                 else:
                     await self._send_update_sub(
                         sid=chan_state.sid,
@@ -329,11 +330,13 @@ class KalshiWebSocketClient:
         chan_state = self.channels.get(channel_name)
         if chan_state is None:
             return
-        if chan_state.sid is not None:
-            await self._send_unsubscribe(chan_state.sid)
-            self._sid_map.pop(chan_state.sid, None)
+        old_sid = chan_state.sid
+        self._sid_map.pop(old_sid, None)
         chan_state.sid = None
         chan_state.seq = 0
+        if old_sid is not None:
+            await self._send_unsubscribe(old_sid)
+            await asyncio.sleep(0.1)
         if chan_state.markets:
             await self._send_subscribe(chan_state.name, list(chan_state.markets))
 
