@@ -28,6 +28,7 @@ TYPE_ALIASES: dict[str, str] = {
     "marketTicker": "str",
     "marketSide": "str",
     "orderAction": "str",
+    "bookSide": "str",
 }
 
 
