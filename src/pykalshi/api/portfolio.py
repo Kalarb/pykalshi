@@ -59,12 +59,44 @@ async def get_settlements(client: KalshiHttpClient) -> dict[str, Any]:
 
 async def get_fills(client: KalshiHttpClient) -> dict[str, Any]:
     """Get Fills.
-    
+
     GET /trade-api/v2/portfolio/fills
-    
+
     Endpoint for getting all fills for the member. A fill is when a trade you have is
 matched. Fills that occurred before the historical cutoff are only available via `GET
 /historical/fills`. See [Historical
 Data](https://kalshi.com/docs/getting_started/historical_data) for details.
     """
     return await client.get(f"{PORTFOLIO_URL}/fills")
+
+
+async def get_deposits(
+    client: KalshiHttpClient,
+    *,
+    limit: Optional[int] = None,
+    cursor: Optional[str] = None,
+) -> dict[str, Any]:
+    """Get Deposits.
+
+    GET /trade-api/v2/portfolio/deposits
+
+    Retrieves the member's deposit history.
+    """
+    params = strip_none({"limit": limit, "cursor": cursor})
+    return await client.get(f"{PORTFOLIO_URL}/deposits", params=params)
+
+
+async def get_withdrawals(
+    client: KalshiHttpClient,
+    *,
+    limit: Optional[int] = None,
+    cursor: Optional[str] = None,
+) -> dict[str, Any]:
+    """Get Withdrawals.
+
+    GET /trade-api/v2/portfolio/withdrawals
+
+    Retrieves the member's withdrawal history.
+    """
+    params = strip_none({"limit": limit, "cursor": cursor})
+    return await client.get(f"{PORTFOLIO_URL}/withdrawals", params=params)

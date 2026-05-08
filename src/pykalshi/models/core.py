@@ -8,7 +8,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .enums import OrderStatus, SelfTradePreventionType
+from .enums import BookSide, OrderStatus, SelfTradePreventionType
+
+
+ExchangeIndex = int
 
 
 class BidAskDistributionHistorical(BaseModel):
@@ -137,15 +140,6 @@ class Schedule(BaseModel):
     maintenance_windows: list[MaintenanceWindow] = Field(..., description="Scheduled maintenance windows, during which the exchange may be unavailable.")
 
 
-class BidAskDistribution(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
-
-
 class PriceDistribution(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -157,6 +151,15 @@ class PriceDistribution(BaseModel):
     previous_dollars: str | None = Field(None, description="Last traded YES contract price on the market before the candlestick period (in dollars). May be null if there were no trades before the period.")
     min_dollars: str | None = Field(None, description="Minimum close price of any market during the candlestick period (in dollars).")
     max_dollars: str | None = Field(None, description="Maximum close price of any market during the candlestick period (in dollars).")
+
+
+class BidAskDistribution(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open_dollars: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low_dollars: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high_dollars: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close_dollars: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestick(BaseModel):
@@ -186,6 +189,13 @@ class PlayByPlay(BaseModel):
     periods: list[dict[str, Any]] | None = None
 
 
+class IndexedBalance(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    exchange_index: ExchangeIndex
+    balance: str
+
+
 class Settlement(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -202,6 +212,30 @@ class Settlement(BaseModel):
     value: int | None = Field(None, description="Payout of a single yes contract in cents.")
 
 
+class Deposit(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    id: str = Field(..., description="Unique identifier for the deposit.")
+    status: str = Field(..., description="Current status of the deposit. 'applied' means funds are reflected in balance.")
+    type_: str = Field(..., alias="type", description="Payment method used for the deposit.")
+    amount_cents: int = Field(..., description="Deposit amount in cents.")
+    fee_cents: int = Field(..., description="Fee charged for the deposit in cents.")
+    created_ts: int = Field(..., description="Unix timestamp of when the deposit was created.")
+    finalized_ts: int | None = Field(None, description="Unix timestamp of when the deposit was finalized (applied, failed, or returned).")
+
+
+class Withdrawal(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    id: str = Field(..., description="Unique identifier for the withdrawal.")
+    status: str = Field(..., description="Current status of the withdrawal. 'applied' means funds have been deducted from balance.")
+    type_: str = Field(..., alias="type", description="Payment type used for the withdrawal.")
+    amount_cents: int = Field(..., description="Withdrawal amount in cents.")
+    fee_cents: int = Field(..., description="Fee charged for the withdrawal in cents.")
+    created_ts: int = Field(..., description="Unix timestamp of when the withdrawal was created.")
+    finalized_ts: int | None = Field(None, description="Unix timestamp of when the withdrawal was finalized (applied, failed, or returned).")
+
+
 class Order(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -209,8 +243,10 @@ class Order(BaseModel):
     user_id: str = Field(..., description="Unique identifier for users")
     client_order_id: str
     ticker: str
-    side: str
-    action: str
+    side: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    action: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    outcome_side: str = Field(..., description="The outcome side this order is positioned for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `outcome_side` describes directional exposure only; it does not change the order's price. An order at price `p` with `outcome_side=no` is matched by an order at the same price `p` with `outcome_side=yes` — both parties trade at the same price, just on opposite directions.  `outcome_side` and `book_side` will become the canonical way to determine order direction. The legacy `action`, `side`, and `is_yes` fields will be deprecated in a future release — please migrate to these new fields.")
+    book_side: BookSide = Field(..., description="Same directional bit as outcome_side in book vocabulary. 'bid' is equivalent to outcome_side 'yes'; 'ask' is equivalent to outcome_side 'no'.  `outcome_side` and `book_side` will become the canonical way to determine order direction. The legacy `action`, `side`, and `is_yes` fields will be deprecated in a future release — please migrate to these new fields.")
     type_: str = Field(..., alias="type")
     status: OrderStatus
     yes_price_dollars: str = Field(..., description="The yes price for this order in fixed-point dollars")
@@ -289,7 +325,9 @@ class Trade(BaseModel):
     count_fp: str = Field(..., description="String representation of the number of contracts bought or sold in this trade")
     yes_price_dollars: str = Field(..., description="Yes price for this trade in dollars")
     no_price_dollars: str = Field(..., description="No price for this trade in dollars")
-    taker_side: str = Field(..., description="Side for the taker of this trade")
+    taker_side: str = Field(..., description="Deprecated. Use `taker_outcome_side` (or `taker_book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    taker_outcome_side: str = Field(..., description="The outcome side the taker is positioned for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `taker_outcome_side` describes directional exposure only; it does not change the trade's price. A trade at price `p` with `taker_outcome_side=no` is matched against the maker at the same price `p` with the opposite direction — both parties trade at the same price.  `taker_outcome_side` and `taker_book_side` will become the canonical way to determine trade direction. The legacy `taker_side` field will be deprecated in a future release — please migrate to these new fields.")
+    taker_book_side: BookSide = Field(..., description="Same directional bit as taker_outcome_side in book vocabulary. 'bid' is equivalent to taker_outcome_side 'yes'; 'ask' is equivalent to taker_outcome_side 'no'.  `taker_outcome_side` and `taker_book_side` will become the canonical way to determine trade direction. The legacy `taker_side` field will be deprecated in a future release — please migrate to these new fields.")
     created_time: str = Field(..., description="Timestamp when this trade was executed")
 
 
@@ -317,8 +355,10 @@ class Fill(BaseModel):
     order_id: str = Field(..., description="Unique identifier for the order that resulted in this fill")
     ticker: str = Field(..., description="Unique identifier for the market")
     market_ticker: str = Field(..., description="Unique identifier for the market (legacy field name, same as ticker)")
-    side: str = Field(..., description="Specifies if this is a 'yes' or 'no' fill")
-    action: str = Field(..., description="Specifies if this is a buy or sell order")
+    side: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    action: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    outcome_side: str = Field(..., description="The outcome side this fill positioned the user for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `outcome_side` describes directional exposure only; it does not change the fill's price. A fill at price `p` with `outcome_side=no` is matched against an order at the same price `p` with `outcome_side=yes` — both parties trade at the same price, just on opposite directions.  `outcome_side` and `book_side` will become the canonical way to determine fill direction. The legacy `action` and `side` fields will be deprecated in a future release — please migrate to these new fields.")
+    book_side: BookSide = Field(..., description="Same directional bit as outcome_side in book vocabulary. 'bid' is equivalent to outcome_side 'yes'; 'ask' is equivalent to outcome_side 'no'.  `outcome_side` and `book_side` will become the canonical way to determine fill direction. The legacy `action` and `side` fields will be deprecated in a future release — please migrate to these new fields.")
     count_fp: str = Field(..., description="String representation of the number of contracts bought or sold in this fill")
     yes_price_dollars: str = Field(..., description="Fill price for the yes side in fixed-point dollars")
     no_price_dollars: str = Field(..., description="Fill price for the no side in fixed-point dollars")
@@ -398,6 +438,7 @@ class Quote(BaseModel):
     executed_ts: str | None = Field(None, description="Timestamp when the quote was executed")
     cancelled_ts: str | None = Field(None, description="Timestamp when the quote was cancelled")
     rest_remainder: bool | None = Field(None, description="Whether to rest the remainder of the quote after execution")
+    post_only: bool | None = Field(None, description="Whether the quote creator's order is post-only (visible when the caller is the quote creator)")
     cancellation_reason: str | None = Field(None, description="Reason for quote cancellation if cancelled")
     creator_user_id: str | None = Field(None, description="User ID of the quote creator (private field)")
     rfq_creator_user_id: str | None = Field(None, description="User ID of the RFQ creator (private field)")

@@ -229,8 +229,8 @@ class TestOrderGroups:
 
     @pytest.mark.asyncio
     async def test_create_order_group(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
-        routes = {("POST", "/trade-api/v2/portfolio/order_groups"): {
-            "order_group_id": "grp-1"
+        routes = {("POST", "/trade-api/v2/portfolio/order_groups/create"): {
+            "order_group_id": "grp-1", "subaccount": 0
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_order_group(contracts_limit=100)
@@ -720,7 +720,7 @@ class TestEventOrders:
     async def test_create_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("POST", "/trade-api/v2/portfolio/events/orders"): {
             "order_id": "oid-1", "client_order_id": "c1",
-            "fill_count": "0", "remaining_count": "10",
+            "fill_count": "0", "remaining_count": "10", "ts_ms": 1700000000000,
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.create_event_order(
@@ -733,7 +733,7 @@ class TestEventOrders:
     @pytest.mark.asyncio
     async def test_cancel_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("DELETE", "/trade-api/v2/portfolio/events/orders/oid-1"): {
-            "order_id": "oid-1", "reduced_by": "5",
+            "order_id": "oid-1", "reduced_by": "5", "ts_ms": 1700000000000,
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.cancel_event_order("oid-1")
@@ -743,7 +743,7 @@ class TestEventOrders:
     @pytest.mark.asyncio
     async def test_amend_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("POST", "/trade-api/v2/portfolio/events/orders/oid-1/amend"): {
-            "order_id": "oid-1",
+            "order_id": "oid-1", "ts_ms": 1700000000000,
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.amend_event_order(
@@ -755,7 +755,7 @@ class TestEventOrders:
     @pytest.mark.asyncio
     async def test_decrease_event_order(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("POST", "/trade-api/v2/portfolio/events/orders/oid-1/decrease"): {
-            "order_id": "oid-1", "remaining_count": "3",
+            "order_id": "oid-1", "remaining_count": "3", "ts_ms": 1700000000000,
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.decrease_event_order("oid-1", reduce_to="3")
