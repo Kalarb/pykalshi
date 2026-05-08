@@ -315,7 +315,7 @@ class CreateOrderGroupResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     order_group_id: str = Field(..., description="The unique identifier for the created order group")
-    subaccount: int = Field(..., description="Subaccount number that owns the created order group (0 for primary, 1-32 for subaccounts).")
+    subaccount: int | None = Field(None, description="Subaccount number that owns the created order group (0 for primary, 1-32 for subaccounts).")
 
 
 class GetCommunicationsIDResponse(BaseModel):
@@ -458,7 +458,7 @@ class AmendOrderV2Response(BaseModel):
 
     order_id: str
     client_order_id: str | None = None
-    remaining_count: str | None = Field(None, description="Number of contracts remaining after the amend. Only present when the amend caused a fill or changed the resting size.")
+    remaining_count: str | None = Field(None, description="Number of resting contracts remaining after the amend. This is the actual post-amend resting quantity, not the request's total/max fillable count. Only present when the amend caused a fill or changed the resting size.")
     fill_count: str | None = Field(None, description="Number of contracts filled as a result of the amend crossing the book. Only present when fills occurred or remaining size changed.")
     average_fill_price: str | None = Field(None, description="Volume-weighted average fill price for fills resulting from the amend. Only present when fills occurred.")
     average_fee_paid: str | None = Field(None, description="Volume-weighted average fee paid per contract for fills resulting from the amend. Only present when fills occurred.")

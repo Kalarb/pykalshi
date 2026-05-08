@@ -42,6 +42,14 @@ NULLABLE_OVERRIDES: set[tuple[str, str]] = {
     ("Series", "additional_prohibitions"),
     ("GetOrderQueuePositionsResponse", "queue_positions"),
     ("GetLiveDatasResponse", "live_datas"),
+    # Spec marks required but API omits for legacy/non-event-market data
+    ("Order", "outcome_side"),
+    ("Order", "book_side"),
+    ("Fill", "outcome_side"),
+    ("Fill", "book_side"),
+    ("Trade", "taker_outcome_side"),
+    ("Trade", "taker_book_side"),
+    ("CreateOrderGroupResponse", "subaccount"),
 }
 
 

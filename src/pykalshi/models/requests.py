@@ -186,7 +186,7 @@ class AmendOrderV2Request(BaseModel):
     ticker: str = Field(..., description="Market ticker")
     side: BookSide = Field(..., description="Side of the order")
     price: str = Field(..., description="Updated price for the order in fixed-point dollars.")
-    count: str = Field(..., description="String representation of the updated quantity for the order.")
+    count: str = Field(..., description="Updated total/max fillable count for the order. Set this to the order's already filled count plus the desired resting remaining count after the amend.")
     client_order_id: str | None = Field(None, description="The original client-specified order ID to be amended")
     updated_client_order_id: str | None = Field(None, description="The new client-specified order ID after amendment")
 
