@@ -14,6 +14,7 @@ concurrency:
 jobs:
   version-bump:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
       bumped: ${{ steps.bump.outputs.bumped }}
@@ -98,6 +99,7 @@ jobs:
     needs: version-bump
     if: needs.version-bump.outputs.bumped == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     permissions:
       contents: write
     steps:
