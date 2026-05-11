@@ -90,7 +90,7 @@ class FillMsg(BaseModel):
 class MarketLifecycleV2Msg(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_type: str = Field(..., description="Field to annotate which of the event type this event is for: - `created` - Market created - `activated` - Market activated - `deactivated` - Market deactivated - `close_date_updated` - Market close date updated - `determined` - Market determined - `settled` - Market settled - `price_level_structure_updated` - Market price level structure changed - `metadata_updated` - Market metadata updated (initially floor strike only, may expand to more fields)")
+    event_type: str = Field(..., description="Field to annotate which of the event type this event is for: - `created` - Market created - `activated` - Market activated - `deactivated` - Market deactivated - `close_date_updated` - Market close date updated - `determined` - Market determined - `settled` - Market settled - `price_level_structure_updated` - Market price level structure changed - `metadata_updated` - Market metadata updated (e.g. floor strike, yes_sub_title)")
     market_ticker: str = Field(..., description="Unique identifier for markets. This is what you use to differentiate updates for different markets")
     open_ts: int | None = Field(None, description="Optional - This key will ONLY exist when the market is created. Unix timestamp for when the market opened (in seconds)")
     close_ts: int | None = Field(None, description="Optional - This key will ONLY exist when the market is created OR when the close date is updated. Unix timestamp for when the market is scheduled to close (in seconds). Will be updated in case of early determination markets")
@@ -101,6 +101,7 @@ class MarketLifecycleV2Msg(BaseModel):
     is_deactivated: bool | None = Field(None, description="Optional - This key will ONLY exist when the market is paused/unpaused. Boolean flag to indicate if trading is paused on an open market. This should only be interpreted for an open market")
     price_level_structure: str | None = Field(None, description="Optional - This key will exist when the market is created or when the price level structure is updated. The price level structure of the market")
     floor_strike: float | None = Field(None, description="Optional - This key will ONLY exist for metadata_updated events. The updated floor strike value for the market")
+    yes_sub_title: str | None = Field(None, description="Optional - This key will ONLY exist for metadata_updated events. The updated yes subtitle for the market")
     additional_metadata: dict[str, Any] | None = Field(None, description="Optional - This key will be emitted when the market is created")
 
 
