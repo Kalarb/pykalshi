@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .enums import BookSide, SelfTradePreventionType
-from .core import BatchCancelOrdersRequestOrder, TickerPair
+from .core import BatchCancelOrdersRequestOrder, ExchangeIndex, TickerPair
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -79,6 +79,7 @@ class CreateQuoteRequest(BaseModel):
     yes_bid: str = Field(..., description="The bid price for YES contracts, in dollars")
     no_bid: str = Field(..., description="The bid price for NO contracts, in dollars")
     rest_remainder: bool = Field(..., description="Whether to rest the remainder of the quote after execution")
+    post_only: bool | None = Field(None, description="If true, the quote creator's resting order will be cancelled rather than crossed if it would take liquidity. Defaults to false.")
     subaccount: int | None = Field(None, description="Optional subaccount number to place the quote under (0 for primary, 1-32 for subaccounts)")
 
 
@@ -111,6 +112,7 @@ class CreateOrderRequest(BaseModel):
     order_group_id: str | None = Field(None, description="The order group this order is part of")
     cancel_order_on_pause: bool | None = Field(None, description="If this flag is set to true, the order will be canceled if the order is open and trading on the exchange is paused for any reason.")
     subaccount: int | None = Field(None, description="The subaccount number to use for this order. 0 is the primary subaccount.")
+    exchange_index: ExchangeIndex | None = None
 
 
 class BatchCreateOrdersRequest(BaseModel):
@@ -169,6 +171,7 @@ class CreateOrderV2Request(BaseModel):
     reduce_only: bool | None = Field(None, description="Specifies whether the order place count should be capped by the member's current position.")
     subaccount: int | None = Field(None, description="The subaccount number to use for this order. 0 is the primary subaccount.")
     order_group_id: str | None = Field(None, description="The order group this order is part of")
+    exchange_index: ExchangeIndex | None = None
 
 
 class DecreaseOrderV2Request(BaseModel):
@@ -183,7 +186,7 @@ class AmendOrderV2Request(BaseModel):
     ticker: str = Field(..., description="Market ticker")
     side: BookSide = Field(..., description="Side of the order")
     price: str = Field(..., description="Updated price for the order in fixed-point dollars.")
-    count: str = Field(..., description="String representation of the updated quantity for the order.")
+    count: str = Field(..., description="Updated total/max fillable count for the order. Set this to the order's already filled count plus the desired resting remaining count after the amend.")
     client_order_id: str | None = Field(None, description="The original client-specified order ID to be amended")
     updated_client_order_id: str | None = Field(None, description="The new client-specified order ID after amendment")
 

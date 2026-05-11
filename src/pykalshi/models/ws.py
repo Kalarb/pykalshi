@@ -35,7 +35,7 @@ class Channel(str, Enum):
     """Multivariate event (MVE) market state changes and event creation notifications."""
 
     MULTIVARIATE = "multivariate"
-    """Multivariate collection lookup notifications."""
+    """Deprecated: this channel predates RFQs and should not be used for new integrations."""
 
     COMMUNICATIONS = "communications"
     """Real-time Request for Quote (RFQ) and quote notifications. Requires authentication."""
@@ -76,22 +76,21 @@ class FillMsg(BaseModel):
     order_id: str = Field(..., description="Unique identifier for orders. This is what you use to differentiate fills for different orders")
     market_ticker: str = Field(..., description="Unique identifier for markets. This is what you use to differentiate fills for different markets")
     is_taker: bool = Field(..., description="If you were a taker on this fill")
-    side: str = Field(..., description="Side of your fill. Either \"yes\" or \"no\"")
     yes_price_dollars: str = Field(..., description="Price for the yes side of the fill in dollars")
     count_fp: str = Field(..., description="Fixed-point contracts filled (2 decimals)")
     fee_cost: str = Field(..., description="Exchange fee paid for this fill in fixed-point dollars")
-    action: str = Field(..., description="Action that initiated the fill. Either \"buy\" or \"sell\"")
     ts_ms: int = Field(..., description="Unix timestamp for when the update happened (in milliseconds)")
     client_order_id: str | None = Field(None, description="Optional client-provided order ID")
     post_position_fp: str = Field(..., description="Fixed-point position after the fill (2 decimals)")
-    purchased_side: str = Field(..., description="Side of the purchased contracts. If user submitted a sell NO, this field will be yes")
+    outcome_side: str = Field(..., description="The outcome side this fill positioned the user for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `outcome_side` describes directional exposure only; it does not change the fill's price. A fill at price `p` with `outcome_side=no` is matched against an order at the same price `p` with `outcome_side=yes` — both parties trade at the same price, just on opposite directions.  `outcome_side` and `book_side` will become the canonical way to determine fill direction. The legacy `action` and `side` fields will be deprecated in a future release — please migrate to these new fields.")
+    book_side: str = Field(..., description="Same directional bit as outcome_side in book vocabulary. 'bid' is equivalent to outcome_side 'yes'; 'ask' is equivalent to outcome_side 'no'.  `outcome_side` and `book_side` will become the canonical way to determine fill direction. The legacy `action` and `side` fields will be deprecated in a future release — please migrate to these new fields.")
     subaccount: int | None = Field(None, description="Optional subaccount number for the fill")
 
 
 class MarketLifecycleV2Msg(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    event_type: str = Field(..., description="Field to annotate which of the event type this event is for: - `created` - Market created - `activated` - Market activated - `deactivated` - Market deactivated - `close_date_updated` - Market close date updated - `determined` - Market determined - `settled` - Market settled - `fractional_trading_updated` - Market fractional trading setting changed - `price_level_structure_updated` - Market price level structure changed")
+    event_type: str = Field(..., description="Field to annotate which of the event type this event is for: - `created` - Market created - `activated` - Market activated - `deactivated` - Market deactivated - `close_date_updated` - Market close date updated - `determined` - Market determined - `settled` - Market settled - `price_level_structure_updated` - Market price level structure changed - `metadata_updated` - Market metadata updated (initially floor strike only, may expand to more fields)")
     market_ticker: str = Field(..., description="Unique identifier for markets. This is what you use to differentiate updates for different markets")
     open_ts: int | None = Field(None, description="Optional - This key will ONLY exist when the market is created. Unix timestamp for when the market opened (in seconds)")
     close_ts: int | None = Field(None, description="Optional - This key will ONLY exist when the market is created OR when the close date is updated. Unix timestamp for when the market is scheduled to close (in seconds). Will be updated in case of early determination markets")
@@ -100,9 +99,9 @@ class MarketLifecycleV2Msg(BaseModel):
     settlement_value: str | None = Field(None, description="Optional - This key will ONLY exist when the market is determined. Settlement value of the market in fixed-point dollars (e.g. \"0.5000\")")
     settled_ts: int | None = Field(None, description="Optional - This key will ONLY exist when the market is settled. Unix timestamp for when the market is settled (in seconds)")
     is_deactivated: bool | None = Field(None, description="Optional - This key will ONLY exist when the market is paused/unpaused. Boolean flag to indicate if trading is paused on an open market. This should only be interpreted for an open market")
-    fractional_trading_enabled: bool | None = Field(None, description="Optional - This key will exist when the market is created or when fractional trading is updated. Whether fractional trading is enabled for the market")
     price_level_structure: str | None = Field(None, description="Optional - This key will exist when the market is created or when the price level structure is updated. The price level structure of the market")
-    additional_metadata: dict[str, Any] | None = Field(None, description="Optional - This key will only be emitted when the market is created")
+    floor_strike: float | None = Field(None, description="Optional - This key will ONLY exist for metadata_updated events. The updated floor strike value for the market")
+    additional_metadata: dict[str, Any] | None = Field(None, description="Optional - This key will be emitted when the market is created")
 
 
 class MarketPositionMsg(BaseModel):
@@ -141,6 +140,7 @@ class OrderGroupUpdatesMsg(BaseModel):
     event_type: str = Field(..., description="Order group event type")
     order_group_id: str = Field(..., description="Order group identifier")
     contracts_limit_fp: str | None = Field(None, description="Updated contracts limit in fixed-point (2 decimals). Present for \"created\" and \"limit_updated\" events only.")
+    ts_ms: int = Field(..., description="Matching engine timestamp at which the event was processed, as Unix epoch milliseconds.")
 
 
 class OrderbookDeltaMsg(BaseModel):
@@ -270,7 +270,8 @@ class TradeMsg(BaseModel):
     yes_price_dollars: str = Field(..., description="Yes side price in dollars")
     no_price_dollars: str = Field(..., description="No side price in dollars")
     count_fp: str = Field(..., description="Fixed-point contracts traded (2 decimals)")
-    taker_side: str
+    taker_outcome_side: str = Field(..., description="The outcome side the taker is positioned for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `taker_outcome_side` describes directional exposure only; it does not change the trade's price. A trade at price `p` with `taker_outcome_side=no` is matched against the maker at the same price `p` with the opposite direction — both parties trade at the same price.  `taker_outcome_side` and `taker_book_side` will become the canonical way to determine trade direction. The legacy `taker_side` field will be deprecated in a future release — please migrate to these new fields.")
+    taker_book_side: str = Field(..., description="Same directional bit as taker_outcome_side in book vocabulary. 'bid' is equivalent to taker_outcome_side 'yes'; 'ask' is equivalent to taker_outcome_side 'no'.  `taker_outcome_side` and `taker_book_side` will become the canonical way to determine trade direction. The legacy `taker_side` field will be deprecated in a future release — please migrate to these new fields.")
     ts_ms: int = Field(..., description="Unix timestamp in milliseconds")
 
 
@@ -281,8 +282,8 @@ class UserOrderMsg(BaseModel):
     user_id: str = Field(..., description="User identifier")
     ticker: str = Field(..., description="Market ticker for the order")
     status: str = Field(..., description="Current order status")
-    side: str = Field(..., description="Side of the order (\"yes\" or \"no\")")
-    is_yes: bool = Field(..., description="Whether the order is on the yes side. Equivalent to side == \"yes\"")
+    outcome_side: str = Field(..., description="The outcome side this order is positioned for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `outcome_side` describes directional exposure only; it does not change the order's price. An order at price `p` with `outcome_side=no` is matched by an order at the same price `p` with `outcome_side=yes` — both parties trade at the same price, just on opposite directions.  `outcome_side` and `book_side` will become the canonical way to determine order direction. The legacy `action`, `side`, and `is_yes` fields will be deprecated in a future release — please migrate to these new fields.")
+    book_side: str = Field(..., description="Same directional bit as outcome_side in book vocabulary. 'bid' is equivalent to outcome_side 'yes'; 'ask' is equivalent to outcome_side 'no'.  `outcome_side` and `book_side` will become the canonical way to determine order direction. The legacy `action`, `side`, and `is_yes` fields will be deprecated in a future release — please migrate to these new fields.")
     yes_price_dollars: str = Field(..., description="Yes price in fixed-point dollars (4 decimals)")
     fill_count_fp: str = Field(..., description="Number of contracts filled in fixed-point (2 decimals)")
     remaining_count_fp: str = Field(..., description="Number of contracts remaining in fixed-point (2 decimals)")

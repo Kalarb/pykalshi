@@ -7,6 +7,8 @@ MOCK_ORDER = {
     "ticker": "KXBTC-100K",
     "side": "yes",
     "action": "buy",
+    "outcome_side": "yes",
+    "book_side": "bid",
     "type": "limit",
     "status": "resting",
     "yes_price_dollars": "0.50",
@@ -130,5 +132,7 @@ MOCK_TRADE = {
     "yes_price_dollars": "0.50",
     "no_price_dollars": "0.50",
     "taker_side": "yes",
+    "taker_outcome_side": "yes",
+    "taker_book_side": "bid",
     "created_time": "2024-01-01T00:00:00Z",
 }

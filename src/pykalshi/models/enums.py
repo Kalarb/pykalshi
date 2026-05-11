@@ -30,7 +30,7 @@ class OrderStatus(str, Enum):
 
 
 class SelfTradePreventionType(str, Enum):
-    """The self-trade prevention type for orders. `taker_at_cross` cancels the taker order when it would trade against another order from the same user; execution stops and any partial fills already matched are executed. `maker` cancels the resting maker order and continues matching; after execution, any remaining taker quantity is canceled and any fills are executed.
+    """The self-trade prevention type for orders. `taker_at_cross` cancels the taker order when it would trade against another order from the same user; execution stops and any partial fills already matched are executed. `maker` cancels the resting maker order and continues matching.
 """
 
     TAKER_AT_CROSS = "taker_at_cross"

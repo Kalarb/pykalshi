@@ -47,6 +47,7 @@ from .models.responses import (
     GetEventsResponse,
     GetExchangeAnnouncementsResponse,
     GetExchangeScheduleResponse,
+    GetDepositsResponse,
     GetFillsResponse,
     GetFiltersBySportsResponse,
     GetGameStatsResponse,
@@ -86,6 +87,7 @@ from .models.responses import (
     GetTagsForSeriesCategoriesResponse,
     GetTradesResponse,
     GetUserDataTimestampResponse,
+    GetWithdrawalsResponse,
     LookupTickersForMarketInMultivariateEventCollectionResponse,
 )
 from .rate_limiter import ReadWriteTokenBucket
@@ -414,6 +416,14 @@ class KalshiHttpClient:
     async def get_fills(self) -> GetFillsResponse:
         data = await portfolio.get_fills(self)
         return GetFillsResponse.model_validate(data)
+
+    async def get_deposits(self, **kwargs: Any) -> GetDepositsResponse:
+        data = await portfolio.get_deposits(self, **kwargs)
+        return GetDepositsResponse.model_validate(data)
+
+    async def get_withdrawals(self, **kwargs: Any) -> GetWithdrawalsResponse:
+        data = await portfolio.get_withdrawals(self, **kwargs)
+        return GetWithdrawalsResponse.model_validate(data)
 
     # --- Markets ---
 

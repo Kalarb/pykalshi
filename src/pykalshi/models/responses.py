@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .core import Announcement, ApiKey, BucketLimit, EndpointTokenCost, EventData, EventPosition, Fill, ForecastPercentilesPoint, IncentiveProgram, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade
+from .core import Announcement, ApiKey, BucketLimit, Deposit, EndpointTokenCost, EventData, EventPosition, Fill, ForecastPercentilesPoint, IncentiveProgram, IndexedBalance, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade, Withdrawal
 
 
 class GetMarketCandlesticksHistoricalResponse(BaseModel):
@@ -152,6 +152,7 @@ class GetBalanceResponse(BaseModel):
     balance: int = Field(..., description="Member's available balance in cents. This represents the amount available for trading.")
     portfolio_value: int = Field(..., description="Member's portfolio value in cents. This is the current value of all positions held.")
     updated_ts: int = Field(..., description="Unix timestamp of the last update to the balance.")
+    balance_breakdown: list[IndexedBalance] | None = Field(None, description="Balance broken down per exchange index.")
 
 
 class CreateSubaccountResponse(BaseModel):
@@ -198,6 +199,20 @@ class GetPortfolioRestingOrderTotalValueResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     total_resting_order_value: int = Field(..., description="Total value of resting orders in cents")
+
+
+class GetDepositsResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    deposits: list[Deposit]
+    cursor: str | None = None
+
+
+class GetWithdrawalsResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    withdrawals: list[Withdrawal]
+    cursor: str | None = None
 
 
 class GetMilestoneResponse(BaseModel):
@@ -300,6 +315,7 @@ class CreateOrderGroupResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     order_group_id: str = Field(..., description="The unique identifier for the created order group")
+    subaccount: int | None = Field(None, description="Subaccount number that owns the created order group (0 for primary, 1-32 for subaccounts).")
 
 
 class GetCommunicationsIDResponse(BaseModel):
@@ -416,6 +432,7 @@ class CreateOrderV2Response(BaseModel):
     remaining_count: str = Field(..., description="Number of contracts remaining after placement. For IOC orders, this reflects the final state after unfilled contracts are canceled.")
     average_fill_price: str | None = Field(None, description="Volume-weighted average fill price. Only present when fill_count > 0.")
     average_fee_paid: str | None = Field(None, description="Volume-weighted average fee paid per contract for fills resulting from this request. Only present when fill_count > 0.")
+    ts_ms: int = Field(..., description="Matching engine timestamp at which the order was processed, as Unix epoch milliseconds.")
 
 
 class CancelOrderV2Response(BaseModel):
@@ -424,6 +441,7 @@ class CancelOrderV2Response(BaseModel):
     order_id: str
     client_order_id: str | None = None
     reduced_by: str = Field(..., description="Number of contracts that were canceled (i.e. the remaining count at time of cancellation).")
+    ts_ms: int = Field(..., description="Matching engine timestamp at which the cancellation was processed, as Unix epoch milliseconds.")
 
 
 class DecreaseOrderV2Response(BaseModel):
@@ -432,6 +450,7 @@ class DecreaseOrderV2Response(BaseModel):
     order_id: str
     client_order_id: str | None = None
     remaining_count: str = Field(..., description="Number of contracts remaining after the decrease.")
+    ts_ms: int = Field(..., description="Matching engine timestamp at which the decrease was processed, as Unix epoch milliseconds.")
 
 
 class AmendOrderV2Response(BaseModel):
@@ -439,10 +458,11 @@ class AmendOrderV2Response(BaseModel):
 
     order_id: str
     client_order_id: str | None = None
-    remaining_count: str | None = Field(None, description="Number of contracts remaining after the amend. Only present when the amend caused a fill or changed the resting size.")
+    remaining_count: str | None = Field(None, description="Number of resting contracts remaining after the amend. This is the actual post-amend resting quantity, not the request's total/max fillable count. Only present when the amend caused a fill or changed the resting size.")
     fill_count: str | None = Field(None, description="Number of contracts filled as a result of the amend crossing the book. Only present when fills occurred or remaining size changed.")
     average_fill_price: str | None = Field(None, description="Volume-weighted average fill price for fills resulting from the amend. Only present when fills occurred.")
     average_fee_paid: str | None = Field(None, description="Volume-weighted average fee paid per contract for fills resulting from the amend. Only present when fills occurred.")
+    ts_ms: int = Field(..., description="Matching engine timestamp at which the amend was processed, as Unix epoch milliseconds.")
 
 
 class BatchCreateOrdersV2Response(BaseModel):

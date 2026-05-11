@@ -28,6 +28,7 @@ TYPE_ALIASES: dict[str, str] = {
     "marketTicker": "str",
     "marketSide": "str",
     "orderAction": "str",
+    "bookSide": "str",
 }
 
 
@@ -326,10 +327,17 @@ def update_init(ws_class_names: list[str]) -> None:
 
     # Check if ws imports already exist
     if "from .ws import" in content:
-        # Replace existing ws import line
+        # Remove existing ws import block (handles both single-line and multi-line)
         new_lines = []
+        in_ws_import = False
         for line in content.splitlines():
             if line.startswith("from .ws import"):
+                if "(" in line and ")" not in line:
+                    in_ws_import = True
+                continue
+            if in_ws_import:
+                if ")" in line:
+                    in_ws_import = False
                 continue
             new_lines.append(line)
         content = "\n".join(new_lines)
@@ -337,7 +345,11 @@ def update_init(ws_class_names: list[str]) -> None:
     # Find __all__ and add ws names
     if "from .ws import" not in content:
         # Add import before __all__
-        import_line = f"from .ws import {', '.join(sorted(ws_class_names))}"
+        import_parts = ["from .ws import ("]
+        for n in sorted(ws_class_names):
+            import_parts.append(f"    {n},")
+        import_parts.append(")")
+        import_line = "\n".join(import_parts)
 
         # Insert before __all__
         if "__all__" in content:
