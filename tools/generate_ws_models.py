@@ -107,13 +107,11 @@ def generate_inline_model(
         return "\n".join(lines)
 
     for prop_name, prop_schema in properties.items():
-        if prop_schema.get("deprecated", False):
-            continue
-
         # Skip properties with non-identifier names (e.g., numeric error codes)
         if not prop_name.isidentifier():
             continue
 
+        is_deprecated = prop_schema.get("deprecated", False)
         is_required = prop_name in required_set
         py_type = resolve_type(prop_schema, required=is_required)
         description = prop_schema.get("description", "").strip()
@@ -132,13 +130,15 @@ def generate_inline_model(
 
         default = "" if (is_required and "| None" not in py_type) else " = None"
 
-        if is_alias or description:
+        if is_alias or description or is_deprecated:
             default_val = default.strip(" =") or "..."
             field_kwargs = [default_val]
             if is_alias:
                 field_kwargs.append(f'alias="{prop_name}"')
             if description:
                 field_kwargs.append(f'description="{description}"')
+            if is_deprecated:
+                field_kwargs.append("deprecated=True")
             lines.append(f"    {field_name}: {py_type} = Field({', '.join(field_kwargs)})")
         else:
             lines.append(f"    {field_name}: {py_type}{default}")
@@ -256,13 +256,11 @@ def generate_ws_models(schemas: dict[str, Any], channels: dict[str, Any]) -> str
             envelope_lines.append("    pass")
         else:
             for prop_name, prop_schema in props.items():
-                if prop_schema.get("deprecated", False):
-                    continue
-
                 # Skip properties with non-identifier names (e.g., numeric error codes)
                 if not prop_name.isidentifier():
                     continue
 
+                is_deprecated = prop_schema.get("deprecated", False)
                 is_required = prop_name in required_set
 
                 # Special handling for 'msg' field with inline object
@@ -292,13 +290,15 @@ def generate_ws_models(schemas: dict[str, Any], channels: dict[str, Any]) -> str
 
                 default = "" if (is_required and "| None" not in py_type) else " = None"
 
-                if is_alias or description:
+                if is_alias or description or is_deprecated:
                     default_val = default.strip(" =") or "..."
                     field_kwargs = [default_val]
                     if is_alias:
                         field_kwargs.append(f'alias="{prop_name}"')
                     if description:
                         field_kwargs.append(f'description="{description}"')
+                    if is_deprecated:
+                        field_kwargs.append("deprecated=True")
                     envelope_lines.append(f"    {field_name}: {py_type} = Field({', '.join(field_kwargs)})")
                 else:
                     envelope_lines.append(f"    {field_name}: {py_type}{default}")

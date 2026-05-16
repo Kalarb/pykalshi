@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .core import Announcement, ApiKey, BucketLimit, Deposit, EndpointTokenCost, EventData, EventPosition, Fill, ForecastPercentilesPoint, IncentiveProgram, IndexedBalance, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade, Withdrawal
+from .core import Announcement, ApiKey, BucketLimit, Deposit, EndpointTokenCost, EventData, EventPosition, ExchangeIndex, Fill, ForecastPercentilesPoint, IncentiveProgram, IndexedBalance, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade, Withdrawal
 
 
 class GetMarketCandlesticksHistoricalResponse(BaseModel):
@@ -150,6 +150,7 @@ class GetBalanceResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     balance: int = Field(..., description="Member's available balance in cents. This represents the amount available for trading.")
+    balance_dollars: str | None = Field(None, description="Member's available balance as a fixed-point dollar string. This represents the amount available for trading.")
     portfolio_value: int = Field(..., description="Member's portfolio value in cents. This is the current value of all positions held.")
     updated_ts: int = Field(..., description="Unix timestamp of the last update to the balance.")
     balance_breakdown: list[IndexedBalance] | None = Field(None, description="Balance broken down per exchange index.")
@@ -309,6 +310,7 @@ class GetOrderGroupResponse(BaseModel):
     is_auto_cancel_enabled: bool = Field(..., description="Whether auto-cancel is enabled for this order group")
     contracts_limit_fp: str | None = Field(None, description="String representation of the current maximum contracts allowed over a rolling 15-second window.")
     orders: list[str] = Field(..., description="List of order IDs that belong to this order group")
+    exchange_index: ExchangeIndex | None = None
 
 
 class CreateOrderGroupResponse(BaseModel):
@@ -316,6 +318,7 @@ class CreateOrderGroupResponse(BaseModel):
 
     order_group_id: str = Field(..., description="The unique identifier for the created order group")
     subaccount: int | None = Field(None, description="Subaccount number that owns the created order group (0 for primary, 1-32 for subaccounts).")
+    exchange_index: ExchangeIndex | None = None
 
 
 class GetCommunicationsIDResponse(BaseModel):
