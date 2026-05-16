@@ -49,6 +49,7 @@ class CreateOrderGroupRequest(BaseModel):
     subaccount: int | None = Field(None, description="Optional subaccount number to use for this order group (0 for primary, 1-32 for subaccounts)")
     contracts_limit: int | None = Field(None, description="Specifies the maximum number of contracts that can be matched within this group over a rolling 15-second window. Whole contracts only. Provide contracts_limit or contracts_limit_fp; if both provided they must match.")
     contracts_limit_fp: str | None = Field(None, description="String representation of the maximum number of contracts that can be matched within this group over a rolling 15-second window. Provide contracts_limit or contracts_limit_fp; if both provided they must match.")
+    exchange_index: ExchangeIndex | None = None
 
 
 class UpdateOrderGroupLimitRequest(BaseModel):
@@ -102,8 +103,8 @@ class CreateOrderRequest(BaseModel):
     no_price: int | None = None
     yes_price_dollars: str | None = Field(None, description="Submitting price of the Yes side in fixed-point dollars")
     no_price_dollars: str | None = Field(None, description="Submitting price of the No side in fixed-point dollars")
-    expiration_ts: int | None = None
-    time_in_force: str | None = None
+    expiration_ts: int | None = Field(None, description="Optional Unix timestamp in seconds for when the order expires. To place an expiring order, set `time_in_force` to `good_till_canceled` and provide this `expiration_ts`. `GTT` is an internal execution type and is not a valid API value for `time_in_force`. The `immediate_or_cancel` time-in-force value cannot be combined with `expiration_ts`.")
+    time_in_force: str | None = Field(None, description="Specifies how long the order remains active. Use `good_till_canceled` with `expiration_ts` for an order that should rest until a specific expiration time; without `expiration_ts`, `good_till_canceled` is a true good-till-canceled order. `GTT` is not a valid API value.")
     buy_max_cost: int | None = Field(None, description="Maximum cost in cents. When specified, the order will automatically have Fill-or-Kill (FoK) behavior.")
     post_only: bool | None = None
     reduce_only: bool | None = None
@@ -143,6 +144,7 @@ class AmendOrderRequest(BaseModel):
     no_price_dollars: str | None = Field(None, description="Updated no price for the order in fixed-point dollars. Exactly one of yes_price, no_price, yes_price_dollars, and no_price_dollars must be passed.")
     count: int | None = Field(None, description="Updated quantity for the order (whole contracts only). If updating quantity, provide count or count_fp; if both provided they must match.")
     count_fp: str | None = Field(None, description="String representation of the updated quantity for the order. If updating quantity, provide count or count_fp; if both provided they must match.")
+    exchange_index: ExchangeIndex | None = None
 
 
 class DecreaseOrderRequest(BaseModel):
@@ -153,6 +155,7 @@ class DecreaseOrderRequest(BaseModel):
     reduce_by_fp: str | None = Field(None, description="String representation of the number of contracts to reduce by. Reduce-by may be provided via reduce_by or reduce_by_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
     reduce_to: int | None = Field(None, description="Number of contracts to reduce to (whole contracts only). Reduce-to may be provided via reduce_to or reduce_to_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
     reduce_to_fp: str | None = Field(None, description="String representation of the number of contracts to reduce to. Reduce-to may be provided via reduce_to or reduce_to_fp; if both provided they must match. Exactly one of reduce_by(/reduce_by_fp) or reduce_to(/reduce_to_fp) must be provided.")
+    exchange_index: ExchangeIndex | None = None
 
 
 class CreateOrderV2Request(BaseModel):
@@ -163,8 +166,8 @@ class CreateOrderV2Request(BaseModel):
     side: BookSide
     count: str = Field(..., description="String representation of the order quantity in contracts.")
     price: str = Field(..., description="Price for the order in fixed-point dollars.")
-    expiration_time: int | None = None
-    time_in_force: str
+    expiration_time: int | None = Field(None, description="Optional Unix timestamp in seconds for when the order expires. To place an expiring order, set `time_in_force` to `good_till_canceled` and provide this `expiration_time`. `GTT` is an internal execution type and is not a valid API value for `time_in_force`. The `immediate_or_cancel` time-in-force value cannot be combined with `expiration_time`.")
+    time_in_force: str = Field(..., description="Specifies how long the order remains active. Use `good_till_canceled` with `expiration_time` for an order that should rest until a specific expiration time; without `expiration_time`, `good_till_canceled` is a true good-till-canceled order. `GTT` is not a valid API value.")
     post_only: bool | None = None
     self_trade_prevention_type: SelfTradePreventionType
     cancel_order_on_pause: bool | None = Field(None, description="If this flag is set to true, the order will be canceled if the order is open and trading on the exchange is paused for any reason.")
@@ -177,7 +180,9 @@ class CreateOrderV2Request(BaseModel):
 class DecreaseOrderV2Request(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    reduce_to: str = Field(..., description="String representation of the number of contracts to reduce to.")
+    reduce_by: str | None = Field(None, description="String representation of the number of contracts to reduce by. Exactly one of `reduce_by` or `reduce_to` must be provided.")
+    reduce_to: str | None = Field(None, description="String representation of the number of contracts to reduce to. Exactly one of `reduce_by` or `reduce_to` must be provided.")
+    exchange_index: ExchangeIndex | None = None
 
 
 class AmendOrderV2Request(BaseModel):
@@ -189,6 +194,7 @@ class AmendOrderV2Request(BaseModel):
     count: str = Field(..., description="Updated total/max fillable count for the order. Set this to the order's already filled count plus the desired resting remaining count after the amend.")
     client_order_id: str | None = Field(None, description="The original client-specified order ID to be amended")
     updated_client_order_id: str | None = Field(None, description="The new client-specified order ID after amendment")
+    exchange_index: ExchangeIndex | None = None
 
 
 class BatchCreateOrdersV2Request(BaseModel):

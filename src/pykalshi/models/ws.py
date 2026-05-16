@@ -76,12 +76,16 @@ class FillMsg(BaseModel):
     order_id: str = Field(..., description="Unique identifier for orders. This is what you use to differentiate fills for different orders")
     market_ticker: str = Field(..., description="Unique identifier for markets. This is what you use to differentiate fills for different markets")
     is_taker: bool = Field(..., description="If you were a taker on this fill")
+    side: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
     yes_price_dollars: str = Field(..., description="Price for the yes side of the fill in dollars")
     count_fp: str = Field(..., description="Fixed-point contracts filled (2 decimals)")
     fee_cost: str = Field(..., description="Exchange fee paid for this fill in fixed-point dollars")
+    action: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    ts: int = Field(..., description="Deprecated - Unix timestamp for when the update happened (in seconds). Use ts_ms instead.", deprecated=True)
     ts_ms: int = Field(..., description="Unix timestamp for when the update happened (in milliseconds)")
     client_order_id: str | None = Field(None, description="Optional client-provided order ID")
     post_position_fp: str = Field(..., description="Fixed-point position after the fill (2 decimals)")
+    purchased_side: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
     outcome_side: str = Field(..., description="The outcome side this fill positioned the user for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `outcome_side` describes directional exposure only; it does not change the fill's price. A fill at price `p` with `outcome_side=no` is matched against an order at the same price `p` with `outcome_side=yes` — both parties trade at the same price, just on opposite directions.  `outcome_side` and `book_side` will become the canonical way to determine fill direction. The legacy `action` and `side` fields will be deprecated in a future release — please migrate to these new fields.")
     book_side: str = Field(..., description="Same directional bit as outcome_side in book vocabulary. 'bid' is equivalent to outcome_side 'yes'; 'ask' is equivalent to outcome_side 'no'.  `outcome_side` and `book_side` will become the canonical way to determine fill direction. The legacy `action` and `side` fields will be deprecated in a future release — please migrate to these new fields.")
     subaccount: int | None = Field(None, description="Optional subaccount number for the fill")
@@ -154,6 +158,7 @@ class OrderbookDeltaMsg(BaseModel):
     side: str
     client_order_id: str | None = Field(None, description="Optional - Present only when you caused this orderbook change. Contains the client_order_id of your order that triggered this delta.")
     subaccount: int | None = Field(None, description="Optional - Present only when you caused this orderbook change and are using subaccounts. Contains the subaccount number of your order that triggered this delta.")
+    ts: str | None = Field(None, description="Deprecated - Optional timestamp for when the orderbook change was recorded (RFC3339). Use ts_ms instead.", deprecated=True)
     ts_ms: int | None = Field(None, description="Optional - Unix timestamp for when the orderbook change was recorded (in milliseconds)")
 
 
@@ -260,7 +265,9 @@ class TickerMsg(BaseModel):
     yes_bid_size_fp: str = Field(..., description="Fixed-point contracts at best bid (2 decimals)")
     yes_ask_size_fp: str = Field(..., description="Fixed-point contracts at best ask (2 decimals)")
     last_trade_size_fp: str = Field(..., description="Fixed-point contracts in last trade (2 decimals)")
+    ts: int = Field(..., description="Deprecated - Unix timestamp for when the update happened (in seconds). Use ts_ms instead.", deprecated=True)
     ts_ms: int = Field(..., description="Unix timestamp for when the update happened (in milliseconds)")
+    time: str = Field(..., description="Deprecated - Timestamp for when the update happened (RFC3339). Use ts_ms instead.", deprecated=True)
 
 
 class TradeMsg(BaseModel):
@@ -271,8 +278,10 @@ class TradeMsg(BaseModel):
     yes_price_dollars: str = Field(..., description="Yes side price in dollars")
     no_price_dollars: str = Field(..., description="No side price in dollars")
     count_fp: str = Field(..., description="Fixed-point contracts traded (2 decimals)")
+    taker_side: str = Field(..., description="Deprecated. Use `taker_outcome_side` (or `taker_book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
     taker_outcome_side: str = Field(..., description="The outcome side the taker is positioned for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `taker_outcome_side` describes directional exposure only; it does not change the trade's price. A trade at price `p` with `taker_outcome_side=no` is matched against the maker at the same price `p` with the opposite direction — both parties trade at the same price.  `taker_outcome_side` and `taker_book_side` will become the canonical way to determine trade direction. The legacy `taker_side` field will be deprecated in a future release — please migrate to these new fields.")
     taker_book_side: str = Field(..., description="Same directional bit as taker_outcome_side in book vocabulary. 'bid' is equivalent to taker_outcome_side 'yes'; 'ask' is equivalent to taker_outcome_side 'no'.  `taker_outcome_side` and `taker_book_side` will become the canonical way to determine trade direction. The legacy `taker_side` field will be deprecated in a future release — please migrate to these new fields.")
+    ts: int = Field(..., description="Deprecated - Unix timestamp in seconds. Use ts_ms instead.", deprecated=True)
     ts_ms: int = Field(..., description="Unix timestamp in milliseconds")
 
 
@@ -283,6 +292,8 @@ class UserOrderMsg(BaseModel):
     user_id: str = Field(..., description="User identifier")
     ticker: str = Field(..., description="Market ticker for the order")
     status: str = Field(..., description="Current order status")
+    side: str = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
+    is_yes: bool = Field(..., description="Deprecated. Use `outcome_side` (or `book_side`) instead. See [Order direction](/getting_started/order_direction). This field will not be removed before May 14, 2026.", deprecated=True)
     outcome_side: str = Field(..., description="The outcome side this order is positioned for. buy-yes and sell-no produce 'yes'; buy-no and sell-yes produce 'no'.  `outcome_side` describes directional exposure only; it does not change the order's price. An order at price `p` with `outcome_side=no` is matched by an order at the same price `p` with `outcome_side=yes` — both parties trade at the same price, just on opposite directions.  `outcome_side` and `book_side` will become the canonical way to determine order direction. The legacy `action`, `side`, and `is_yes` fields will be deprecated in a future release — please migrate to these new fields.")
     book_side: str = Field(..., description="Same directional bit as outcome_side in book vocabulary. 'bid' is equivalent to outcome_side 'yes'; 'ask' is equivalent to outcome_side 'no'.  `outcome_side` and `book_side` will become the canonical way to determine order direction. The legacy `action`, `side`, and `is_yes` fields will be deprecated in a future release — please migrate to these new fields.")
     yes_price_dollars: str = Field(..., description="Yes price in fixed-point dollars (4 decimals)")
@@ -296,8 +307,11 @@ class UserOrderMsg(BaseModel):
     client_order_id: str = Field(..., description="Client-provided order identifier")
     order_group_id: str | None = Field(None, description="Order group identifier, if applicable")
     self_trade_prevention_type: str | None = Field(None, description="Self-trade prevention type")
+    created_time: str = Field(..., description="Deprecated - Order creation time in RFC3339 format. Use created_ts_ms instead.", deprecated=True)
     created_ts_ms: int = Field(..., description="Order creation time as a Unix timestamp in milliseconds")
+    last_update_time: str | None = Field(None, description="Deprecated - Last update time in RFC3339 format. Use last_updated_ts_ms instead.", deprecated=True)
     last_updated_ts_ms: int | None = Field(None, description="Last update time as a Unix timestamp in milliseconds")
+    expiration_time: str | None = Field(None, description="Deprecated - Order expiration time in RFC3339 format. Use expiration_ts_ms instead.", deprecated=True)
     expiration_ts_ms: int | None = Field(None, description="Order expiration time as a Unix timestamp in milliseconds")
     subaccount_number: int | None = Field(None, description="Subaccount number (0 for primary, 1-32 for subaccounts)")
 

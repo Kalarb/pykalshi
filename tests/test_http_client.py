@@ -269,7 +269,7 @@ class TestPortfolio:
     @pytest.mark.asyncio
     async def test_get_balance(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
         routes = {("GET", "/trade-api/v2/portfolio/balance"): {
-            "balance": 10000, "portfolio_value": 5000, "updated_ts": 1700000000
+            "balance": 10000, "balance_dollars": "100.0000", "portfolio_value": 5000, "updated_ts": 1700000000
         }}
         async with _client(creds, cfg, routes) as c:
             result = await c.get_balance()

@@ -175,8 +175,6 @@ from .responses import (
     MarketCandlesticksResponse,
 )
 
-
-
 from .ws import (
     Channel,
     ErrorResponseMsg,
