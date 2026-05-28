@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .core import Announcement, ApiKey, BucketLimit, Deposit, EndpointTokenCost, EventData, EventPosition, ExchangeIndex, Fill, ForecastPercentilesPoint, IncentiveProgram, IndexedBalance, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade, Withdrawal
+from .core import Announcement, ApiKey, BucketLimit, Deposit, EndpointTokenCost, EventData, EventFeeChange, EventPosition, ExchangeIndex, Fill, ForecastPercentilesPoint, IncentiveProgram, IndexedBalance, LiveData, LookupPoint, Market, MarketCandlestick, MarketCandlestickHistorical, MarketMetadata, MarketOrderbookFp, MarketPosition, Milestone, MultivariateEventCollection, Order, OrderGroup, OrderQueuePosition, OrderbookCountFp, PlayByPlay, Quote, RFQ, Schedule, Series, SeriesFeeChange, Settlement, SettlementSource, SportFilterDetails, StructuredTarget, Trade, Withdrawal
 
 
 class GetMarketCandlesticksHistoricalResponse(BaseModel):
@@ -538,6 +538,13 @@ class GetMultivariateEventsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     events: list[EventData] = Field(..., description="Array of multivariate events matching the query criteria.")
+    cursor: str = Field(..., description="Pagination cursor for the next page. Empty if there are no more results.")
+
+
+class GetEventFeeChangesResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    event_fee_changes: list[EventFeeChange]
     cursor: str = Field(..., description="Pagination cursor for the next page. Empty if there are no more results.")
 
 

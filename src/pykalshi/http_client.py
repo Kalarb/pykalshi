@@ -42,6 +42,7 @@ from .models.responses import (
     GetBalanceResponse,
     GetCommunicationsIDResponse,
     GetEventCandlesticksResponse,
+    GetEventFeeChangesResponse,
     GetEventForecastPercentilesHistoryResponse,
     GetEventMetadataResponse,
     GetEventResponse,
@@ -559,6 +560,10 @@ class KalshiHttpClient:
     async def get_event_metadata(self, event_ticker: str) -> GetEventMetadataResponse:
         data = await events.get_event_metadata(self, event_ticker)
         return GetEventMetadataResponse.model_validate(data)
+
+    async def get_event_fee_changes(self, **kwargs: Any) -> GetEventFeeChangesResponse:
+        data = await events.get_event_fee_changes(self, **kwargs)
+        return GetEventFeeChangesResponse.model_validate(data)
 
     async def get_event_candlesticks(
         self, series_ticker: str, event_ticker: str, **kwargs: Any
