@@ -57,6 +57,14 @@ class ErrorResponseMsg(BaseModel):
     market_ticker: str | None = Field(None, description="Market ticker if error is market-specific (optional)")
 
 
+class EventFeeUpdateMsg(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    event_ticker: str = Field(..., description="Unique identifier for the event")
+    fee_type_override: str | None = Field(None, description="Event fee type override. `null` when the override has been cleared.")
+    fee_multiplier_override: float | None = Field(None, description="Event fee multiplier override. `null` when the override has been cleared.")
+
+
 class EventLifecycleMsg(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -322,6 +330,14 @@ class ErrorResponsePayload(BaseModel):
     id: int | None = None
     type_: str = Field(..., alias="type")
     msg: ErrorResponseMsg
+
+
+class EventFeeUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    type_: str = Field(..., alias="type")
+    sid: int
+    msg: EventFeeUpdateMsg
 
 
 class EventLifecyclePayload(BaseModel):

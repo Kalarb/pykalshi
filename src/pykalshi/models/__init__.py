@@ -178,10 +178,13 @@ from .responses import (
     MarketCandlesticksResponse,
 )
 
+
 from .ws import (
     Channel,
     ErrorResponseMsg,
     ErrorResponsePayload,
+    EventFeeUpdateMsg,
+    EventFeeUpdatePayload,
     EventLifecycleMsg,
     EventLifecyclePayload,
     FillMsg,
@@ -284,6 +287,8 @@ __all__ = [
     "ErrorResponsePayload",
     "EventData",
     "EventFeeChange",
+    "EventFeeUpdateMsg",
+    "EventFeeUpdatePayload",
     "EventLifecycleMsg",
     "EventLifecyclePayload",
     "EventPosition",
