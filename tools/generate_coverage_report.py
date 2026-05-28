@@ -147,6 +147,14 @@ def find_test_functions(test_file: Path) -> set[str]:
     return names
 
 
+def find_methods_called_in_tests(test_file: Path) -> set[str]:
+    """Scan a test file for `client.<method_name>(` calls to find which methods are exercised."""
+    if not test_file.exists():
+        return set()
+    source = test_file.read_text()
+    return set(re.findall(r"client\.(\w+)\s*\(", source))
+
+
 def load_test_results() -> dict[str, str]:
     """Load pytest-json-report results. Returns mapping: test_name -> 'passed'/'failed'/'skipped'."""
     if not TEST_RESULTS_FILE.exists():
@@ -174,10 +182,26 @@ def match_test_status(method_name: str, test_results: dict[str, str]) -> str:
     return "—"
 
 
-def check_integration_test_exists(method_name: str, integration_tests: set[str]) -> str:
-    """Check if an integration test exists for a method."""
-    test_name = f"test_{method_name}"
-    return "Exists" if test_name in integration_tests else "—"
+def check_integration_test_exists(
+    method_name: str,
+    integration_tests: set[str],
+    methods_called: set[str],
+) -> str:
+    """Check if an integration test exercises a method.
+
+    Primary signal: the method is actually called in the test file (via ``client.<method>(``).
+    Fallback: fuzzy test-name matching.
+    """
+    if method_name in methods_called:
+        return "Exists"
+    if f"test_{method_name}" in integration_tests:
+        return "Exists"
+    # Fuzzy: check if method name appears within any test name
+    for test_name in integration_tests:
+        test_body = test_name.removeprefix("test_")
+        if method_name in test_body:
+            return "Exists"
+    return "—"
 
 
 def get_ws_channels() -> list[tuple[str, str]]:
@@ -206,8 +230,9 @@ def generate_report() -> str:
     endpoints = parse_api_module_docstrings()
     test_results = load_test_results()
 
-    # Scan for integration test function names (existence check only)
+    # Scan for integration test coverage (function names + actual method calls)
     rest_integration_tests = find_test_functions(TESTS / "test_integration.py")
+    rest_integration_calls = find_methods_called_in_tests(TESTS / "test_integration.py")
     ws_integration_tests = find_test_functions(TESTS / "test_ws_integration.py")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -234,7 +259,7 @@ def generate_report() -> str:
         n_endpoints = len(methods)
         n_unit = sum(1 for m in methods if match_test_status(m, test_results) != "—")
         n_integration = sum(
-            1 for m in methods if check_integration_test_exists(m, rest_integration_tests) != "—"
+            1 for m in methods if check_integration_test_exists(m, rest_integration_tests, rest_integration_calls) != "—"
         )
         total_endpoints += n_endpoints
         total_unit += n_unit
@@ -264,7 +289,7 @@ def generate_report() -> str:
         for method in methods:
             endpoint = endpoints.get(method, "—")
             unit = match_test_status(method, test_results)
-            integration = check_integration_test_exists(method, rest_integration_tests)
+            integration = check_integration_test_exists(method, rest_integration_tests, rest_integration_calls)
             lines.append(f"| `{method}` | `{endpoint}` | {unit} | {integration} | |")
 
         lines.append("")
