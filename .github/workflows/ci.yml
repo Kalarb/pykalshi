@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff check
+        run: uv run ruff check src/ tests/
+
+  rest-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Run REST unit tests
+        run: uv run pytest tests/test_auth.py tests/test_rate_limiter.py tests/test_http_client.py tests/test_config.py tests/test_exceptions.py tests/test_models.py tests/test_observability.py -v --cov=pykalshi --cov-report=term-missing
+
+  ws-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Run WS unit tests
+        run: uv run pytest tests/test_ws_client.py -v
+
+  exchange-gate:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      active: ${{ steps.gate.outputs.active }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Write credentials
+        run: |
+          echo "$KALSHI_DEMO_PRIVATE_KEY_PEM" > /tmp/demo-key.pem
+          chmod 600 /tmp/demo-key.pem
+        env:
+          KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+
+      - name: Check exchange status
+        id: gate
+        run: |
+          uv run python -c "
+          import httpx, os, time, base64
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+
+          key_id = os.environ['KALSHI_DEMO_API_KEY_ID']
+          with open('/tmp/demo-key.pem', 'rb') as f:
+              key = serialization.load_pem_private_key(f.read(), password=None)
+          ts = str(int(time.time() * 1000))
+          path = '/trade-api/v2/exchange/status'
+          msg = (ts + 'GET' + path).encode()
+          sig = base64.b64encode(key.sign(msg, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH), hashes.SHA256())).decode()
+          headers = {'KALSHI-ACCESS-KEY': key_id, 'KALSHI-ACCESS-SIGNATURE': sig, 'KALSHI-ACCESS-TIMESTAMP': ts}
+          resp = httpx.get('https://demo-api.kalshi.co' + path, headers=headers)
+          data = resp.json()
+          active = data.get('exchange_active') or data.get('trading_active', False)
+          if not active:
+              print('::notice::Exchange is in maintenance - skipping')
+              print('active=false')
+          else:
+              print('Exchange is active')
+              print('active=true')
+          " | tee /tmp/gate-output.txt
+          if grep -q "active=true" /tmp/gate-output.txt; then
+            echo "active=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "active=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+
+  rest-integration:
+    needs: [exchange-gate, rest-unit-tests]
+    if: needs.exchange-gate.outputs.active == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Write credentials
+        run: |
+          echo "$KALSHI_DEMO_PRIVATE_KEY_PEM" > /tmp/demo-key.pem
+          chmod 600 /tmp/demo-key.pem
+          cat > .env << EOF
+          KALSHI_DEMO_API_KEY_ID=$KALSHI_DEMO_API_KEY_ID
+          KALSHI_DEMO_PRIVATE_KEY_FILE=/tmp/demo-key.pem
+          EOF
+        env:
+          KALSHI_DEMO_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_DEMO_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+
+      - name: Run REST integration tests
+        run: uv run pytest tests/test_integration.py -v
+
+  ws-integration:
+    if: github.event_name != 'pull_request'
+    needs: [ws-unit-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Write credentials
+        run: |
+          echo "$KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM" > /tmp/prod-ro-key.pem
+          chmod 600 /tmp/prod-ro-key.pem
+          cat > .env << EOF
+          KALSHI_PROD_READ_ONLY_API_KEY_ID=$KALSHI_PROD_READ_ONLY_API_KEY_ID
+          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_FILE=/tmp/prod-ro-key.pem
+          EOF
+        env:
+          KALSHI_PROD_READ_ONLY_API_KEY_ID: ${{ secrets.KALSHI_PROD_READ_ONLY_API_KEY_ID }}
+          KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM: ${{ secrets.KALSHI_PROD_READ_ONLY_PRIVATE_KEY_PEM }}
+
+      - name: Run WebSocket integration tests
+        run: uv run pytest tests/test_ws_integration.py -v
+
+  coverage-report:
+    if: github.ref == 'refs/heads/main'
+    needs: [rest-unit-tests, ws-unit-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra testing
+
+      - name: Run unit tests with JSON report
+        run: |
+          uv run pytest tests/ \
+            --ignore=tests/test_integration.py \
+            --ignore=tests/test_ws_integration.py \
+            --ignore=tests/test_openapi_validation.py \
+            --ignore=tests/test_asyncapi_validation.py \
+            --json-report --json-report-file=test-results.json -q
+
+      - name: Generate coverage report
+        run: uv run python tools/generate_coverage_report.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/API_COVERAGE.md
+          git diff --cached --quiet || git commit -m "docs: update API coverage report"
+          git push
