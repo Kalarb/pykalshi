@@ -147,6 +147,15 @@ def find_test_functions(test_file: Path) -> set[str]:
     return names
 
 
+def find_methods_called_in_tests(test_file: Path) -> set[str]:
+    """Scan a test file for `client.<method_name>(` calls to find which methods are exercised."""
+    if not test_file.exists():
+        return set()
+    source = test_file.read_text()
+    # Match patterns like: client.get_orders(, await client.create_order(, self.client.get_balance(
+    return set(re.findall(r"client\.(\w+)\s*\(", source))
+
+
 def load_test_results() -> dict[str, str]:
     """Load pytest-json-report results. Returns mapping: test_name -> 'passed'/'failed'/'skipped'."""
     if not TEST_RESULTS_FILE.exists():
@@ -174,10 +183,50 @@ def match_test_status(method_name: str, test_results: dict[str, str]) -> str:
     return "—"
 
 
-def check_integration_test_exists(method_name: str, integration_tests: set[str]) -> str:
-    """Check if an integration test exists for a method."""
-    test_name = f"test_{method_name}"
-    return "Exists" if test_name in integration_tests else "—"
+def _method_covered_by_test(method_name: str, test_name: str) -> bool:
+    """Check if a test name covers a given method, using bidirectional substring matching."""
+    test_body = test_name.removeprefix("test_")
+    # Direct: method name appears in test (e.g. "create_order" in "order_create_and_cancel")
+    if method_name in test_body:
+        return True
+    # Reverse: test body appears in method name (e.g. "order_group" in "create_order_group")
+    if test_body in method_name:
+        return True
+    # Word overlap: split both into words and check significant overlap
+    # e.g. method="create_order_group" test="order_group_lifecycle"
+    method_words = set(method_name.split("_"))
+    test_words = set(test_body.split("_"))
+    # Remove common filler words
+    filler = {"test", "and", "by", "get", "create", "delete", "batch", "lifecycle", "list"}
+    method_key = method_words - filler
+    test_key = test_words - filler
+    if method_key and test_key and method_key <= test_key:
+        return True
+    return False
+
+
+def check_integration_test_exists(
+    method_name: str,
+    integration_tests: set[str],
+    methods_called: set[str],
+) -> str:
+    """Check if an integration test exercises a method.
+
+    Primary signal: the method is actually called in the test file (via ``client.<method>(``).
+    Fallback: fuzzy test-name matching for indirect coverage.
+    """
+    # Best signal: method is directly called in the test file
+    if method_name in methods_called:
+        return "Exists"
+
+    # Fallback: name-based matching
+    if f"test_{method_name}" in integration_tests:
+        return "Exists"
+    for test_name in integration_tests:
+        if _method_covered_by_test(method_name, test_name):
+            return "Exists"
+
+    return "—"
 
 
 def get_ws_channels() -> list[tuple[str, str]]:
@@ -206,8 +255,9 @@ def generate_report() -> str:
     endpoints = parse_api_module_docstrings()
     test_results = load_test_results()
 
-    # Scan for integration test function names (existence check only)
+    # Scan for integration test coverage (function names + actual method calls)
     rest_integration_tests = find_test_functions(TESTS / "test_integration.py")
+    rest_integration_calls = find_methods_called_in_tests(TESTS / "test_integration.py")
     ws_integration_tests = find_test_functions(TESTS / "test_ws_integration.py")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -234,7 +284,7 @@ def generate_report() -> str:
         n_endpoints = len(methods)
         n_unit = sum(1 for m in methods if match_test_status(m, test_results) != "—")
         n_integration = sum(
-            1 for m in methods if check_integration_test_exists(m, rest_integration_tests) != "—"
+            1 for m in methods if check_integration_test_exists(m, rest_integration_tests, rest_integration_calls) != "—"
         )
         total_endpoints += n_endpoints
         total_unit += n_unit
@@ -264,7 +314,7 @@ def generate_report() -> str:
         for method in methods:
             endpoint = endpoints.get(method, "—")
             unit = match_test_status(method, test_results)
-            integration = check_integration_test_exists(method, rest_integration_tests)
+            integration = check_integration_test_exists(method, rest_integration_tests, rest_integration_calls)
             lines.append(f"| `{method}` | `{endpoint}` | {unit} | {integration} | |")
 
         lines.append("")
