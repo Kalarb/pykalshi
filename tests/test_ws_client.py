@@ -30,6 +30,7 @@ ASYNCAPI_MESSAGE_TYPES = {
     # market_lifecycle_v2 channel
     "market_lifecycle_v2",
     "event_lifecycle",  # also on multivariate_market_lifecycle
+    "event_fee_update",
     # multivariate_market_lifecycle channel
     "multivariate_market_lifecycle",
     # multivariate channel

@@ -36,6 +36,7 @@ MSG_TYPE_TO_CHANNEL: dict[str, str | None] = {
     # Lifecycle
     "market_lifecycle_v2": "market_lifecycle_v2",
     "event_lifecycle": None,  # arrives on market_lifecycle_v2 OR multivariate_market_lifecycle
+    "event_fee_update": None,  # arrives on market_lifecycle_v2
     "multivariate_market_lifecycle": "multivariate_market_lifecycle",
     "multivariate_lookup": "multivariate",
     # Communications (RFQs, Quotes)
