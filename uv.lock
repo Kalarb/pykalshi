@@ -722,7 +722,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pykalshi"
+name = "pykalshi-client"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },

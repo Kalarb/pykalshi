@@ -1,5 +1,11 @@
 # Contributing
 
+Contributions are welcome! Whether it's a bug report, feature request, or pull request, we appreciate your help making this library better.
+
+## Opening Issues
+
+Please open an issue before starting work on large changes. This lets us discuss the approach and avoid duplicate effort.
+
 ## Branch Workflow
 
 - All changes go through a pull request against `main` — no direct pushes
