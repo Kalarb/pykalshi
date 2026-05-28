@@ -7,7 +7,7 @@ import logging
 import random
 import re
 import time
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 import httpx
 
@@ -289,7 +289,7 @@ class KalshiHttpClient:
         if waited > 0.001:
             self._rate_limiter_wait.record(waited)
 
-        headers = {**self._credentials.auth_headers(method, path), **kwargs.pop("headers", {})}
+        headers = {**kwargs.pop("headers", {}), **self._credentials.auth_headers(method, path)}
         kwargs["headers"] = headers
 
         retries = 0
@@ -328,7 +328,15 @@ class KalshiHttpClient:
                     )
                 if not response.content:
                     return {}
-                return cast(dict[str, Any], response.json())
+                result = response.json()
+                if not isinstance(result, dict):
+                    raise KalshiAPIError(
+                        status_code=response.status_code,
+                        body=response.text,
+                        method=method,
+                        path=path,
+                    )
+                return result
 
             except httpx.RequestError as e:
                 if retries >= self._config.max_retries:

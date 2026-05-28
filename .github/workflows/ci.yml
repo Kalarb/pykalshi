@@ -39,7 +39,7 @@ jobs:
         run: uv sync --extra testing
 
       - name: Run REST unit tests
-        run: uv run pytest tests/test_auth.py tests/test_rate_limiter.py tests/test_http_client.py tests/test_config.py tests/test_exceptions.py tests/test_models.py tests/test_observability.py -v --cov=pykalshi --cov-report=term-missing
+        run: uv run pytest tests/test_auth.py tests/test_rate_limiter.py tests/test_http_client.py tests/test_config.py tests/test_exceptions.py tests/test_models.py tests/test_observability.py tests/test_api_utils.py -v --cov=pykalshi --cov-report=term-missing
 
   ws-unit-tests:
     runs-on: ubuntu-latest
