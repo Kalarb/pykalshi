@@ -9,6 +9,7 @@ dist/
 build/
 .coverage
 .pytest_cache/
+test-results.json
 .mypy_cache/
 .ruff_cache/
 .env
