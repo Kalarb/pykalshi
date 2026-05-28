@@ -21,6 +21,14 @@ class ExchangeInstance(str, Enum):
     MARGINED = "margined"
 
 
+class FeeType(str, Enum):
+    """Fee type for a series or scheduled fee override."""
+
+    QUADRATIC = "quadratic"
+    QUADRATIC_WITH_MAKER_FEES = "quadratic_with_maker_fees"
+    FLAT = "flat"
+
+
 class OrderStatus(str, Enum):
     """The status of an order"""
 

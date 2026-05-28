@@ -102,6 +102,22 @@ information for an event.
     return await client.get(f"{EVENTS_URL}/{event_ticker}/metadata")
 
 
+async def get_event_fee_changes(
+    client: KalshiHttpClient,
+    *,
+    limit: Optional[int] = None,
+    cursor: Optional[str] = None,
+) -> dict[str, Any]:
+    """Get Event Fee Changes.
+
+    GET /trade-api/v2/events/fee_changes
+
+    Retrieve scheduled fee changes for events.
+    """
+    params = strip_none({"limit": limit, "cursor": cursor})
+    return await client.get(f"{EVENTS_URL}/fee_changes", params=params)
+
+
 async def get_event_candlesticks(
     client: KalshiHttpClient,
     series_ticker: str,

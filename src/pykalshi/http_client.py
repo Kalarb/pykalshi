@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import re
 import time
 from typing import Any, Optional, cast
 
@@ -41,6 +42,7 @@ from .models.responses import (
     GetBalanceResponse,
     GetCommunicationsIDResponse,
     GetEventCandlesticksResponse,
+    GetEventFeeChangesResponse,
     GetEventForecastPercentilesHistoryResponse,
     GetEventMetadataResponse,
     GetEventResponse,
@@ -148,6 +150,14 @@ class KalshiHttpClient:
 
         self._client = httpx.AsyncClient(**client_kwargs)
 
+        # Rate limit auto-configuration state
+        self._default_cost: float = 1.0  # conservative until configured
+        self._cost_patterns: list[tuple[re.Pattern[str], str, float]] = []
+        self._rates_configured = False
+        self._rates_configuring = False
+        self._rates_lock = asyncio.Lock()
+        self._auto_configure = config.auto_configure_rates and rate_limiter is None
+
         self._tracer = get_tracer("pykalshi.http")
         self._meter = get_meter("pykalshi.http")
         self._orders_created = self._meter.create_counter(
@@ -180,17 +190,99 @@ class KalshiHttpClient:
     async def close(self) -> None:
         await self._client.aclose()
 
+    # --- Rate limit auto-configuration ---
+
+    async def configure_rate_limits(self) -> None:
+        """Fetch rate limits and endpoint costs from the API and apply them.
+
+        Called automatically on first request when ``auto_configure_rates`` is
+        enabled (the default).  Can also be called explicitly for eager init.
+
+        On failure the client falls back to the defaults from ``ClientConfig``
+        and does not retry automatically.
+        """
+        async with self._rates_lock:
+            if self._rates_configured:
+                return
+            self._rates_configuring = True
+            try:
+                await self._fetch_and_apply_rate_config()
+            except Exception:
+                logger.warning(
+                    "Failed to fetch rate limits from API; using fallback defaults",
+                    exc_info=True,
+                )
+            finally:
+                self._rates_configuring = False
+                self._rates_configured = True  # don't retry on failure
+
+    async def _fetch_and_apply_rate_config(self) -> None:
+        limits = await self.get_api_limits()
+        await self._limiter.reconfigure(
+            read_rate=float(limits.read.refill_rate),
+            write_rate=float(limits.write.refill_rate),
+            read_capacity=float(limits.read.bucket_capacity),
+            write_capacity=float(limits.write.bucket_capacity),
+        )
+        logger.info(
+            "Rate limits configured: read=%d/%d write=%d/%d (rate/capacity)",
+            limits.read.refill_rate,
+            limits.read.bucket_capacity,
+            limits.write.refill_rate,
+            limits.write.bucket_capacity,
+        )
+
+        costs = await self.get_endpoint_costs()
+        self._default_cost = float(costs.default_cost)
+        patterns: list[tuple[re.Pattern[str], str, float]] = []
+        for ec in costs.endpoint_costs:
+            # Kalshi returns paths with :param placeholders (e.g. :order_id).
+            # Replace params first, then escape literals for safety.
+            _marker = "\x00"
+            marked = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", _marker, ec.path)
+            escaped = re.escape(marked)
+            regex = escaped.replace(re.escape(_marker), "[^/]+")
+            patterns.append((
+                re.compile(f"^{regex}$"),
+                ec.method.upper(),
+                float(ec.cost),
+            ))
+        self._cost_patterns = patterns
+        logger.info(
+            "Endpoint costs configured: default=%d, %d non-default endpoints",
+            costs.default_cost,
+            len(costs.endpoint_costs),
+        )
+
+    async def _ensure_rates_configured(self) -> None:
+        if self._rates_configured or self._rates_configuring or not self._auto_configure:
+            return
+        await self.configure_rate_limits()
+
+    def _resolve_cost(self, method: str, path: str) -> float:
+        upper_method = method.upper()
+        for pattern, m, cost in self._cost_patterns:
+            if m == upper_method and pattern.match(path):
+                return cost
+        return self._default_cost
+
     # --- Core request engine ---
 
     async def _execute_request(
         self,
         method: str,
         path: str,
-        global_cost: float,
-        write_cost: float,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Execute request with rate limiting and 429 retry."""
+        await self._ensure_rates_configured()
+
+        cost = self._resolve_cost(method, path)
+        if method.upper() == "GET":
+            global_cost, write_cost = cost, 0.0
+        else:
+            global_cost, write_cost = 0.0, cost
+
         wait_start = time.monotonic()
         await self._limiter.acquire(global_cost=global_cost, write_cost=write_cost)
         waited = time.monotonic() - wait_start
@@ -260,40 +352,32 @@ class KalshiHttpClient:
     async def get(
         self, path: str, params: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
-        return await self._execute_request(
-            "GET", path, 1.0, 0.0, params=params or {}
-        )
+        return await self._execute_request("GET", path, params=params or {})
 
     async def post(
-        self, path: str, body: dict[str, Any], write_cost: float = 1.0
+        self, path: str, body: dict[str, Any]
     ) -> dict[str, Any]:
-        return await self._execute_request(
-            "POST", path, 1.0, write_cost, json=body
-        )
+        return await self._execute_request("POST", path, json=body)
 
     async def put(
         self,
         path: str,
         body: dict[str, Any],
-        write_cost: float = 1.0,
         params: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         return await self._execute_request(
-            "PUT", path, 1.0, write_cost, json=body, **({"params": params} if params else {})
+            "PUT", path, json=body, **({"params": params} if params else {})
         )
 
     async def delete(
         self,
         path: str,
         body: Optional[dict[str, Any]] = None,
-        write_cost: float = 1.0,
     ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {}
         if body is not None:
             kwargs["json"] = body
-        return await self._execute_request(
-            "DELETE", path, 1.0, write_cost, **kwargs
-        )
+        return await self._execute_request("DELETE", path, **kwargs)
 
     # --- Exchange ---
 
@@ -476,6 +560,10 @@ class KalshiHttpClient:
     async def get_event_metadata(self, event_ticker: str) -> GetEventMetadataResponse:
         data = await events.get_event_metadata(self, event_ticker)
         return GetEventMetadataResponse.model_validate(data)
+
+    async def get_event_fee_changes(self, **kwargs: Any) -> GetEventFeeChangesResponse:
+        data = await events.get_event_fee_changes(self, **kwargs)
+        return GetEventFeeChangesResponse.model_validate(data)
 
     async def get_event_candlesticks(
         self, series_ticker: str, event_ticker: str, **kwargs: Any

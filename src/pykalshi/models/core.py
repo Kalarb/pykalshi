@@ -8,10 +8,19 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .enums import BookSide, OrderStatus, SelfTradePreventionType
+from .enums import BookSide, FeeType, OrderStatus, SelfTradePreventionType
 
 
 ExchangeIndex = int
+
+
+class BidAskDistributionHistorical(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
+    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
+    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
+    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class PriceDistributionHistorical(BaseModel):
@@ -23,15 +32,6 @@ class PriceDistributionHistorical(BaseModel):
     close: str | None = Field(None, description="Price of the last trade during the candlestick period (in dollars). Null if no trades occurred.")
     mean: str | None = Field(None, description="Volume-weighted average price during the candlestick period (in dollars). Null if no trades occurred.")
     previous: str | None = Field(None, description="Close price from the previous candlestick period (in dollars). Null if this is the first candlestick or no prior trade exists.")
-
-
-class BidAskDistributionHistorical(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    open: str = Field(..., description="Offer price on the market at the start of the candlestick period (in dollars).")
-    low: str = Field(..., description="Lowest offer price on the market during the candlestick period (in dollars).")
-    high: str = Field(..., description="Highest offer price on the market during the candlestick period (in dollars).")
-    close: str = Field(..., description="Offer price on the market at the end of the candlestick period (in dollars).")
 
 
 class MarketCandlestickHistorical(BaseModel):
@@ -105,13 +105,6 @@ class Announcement(BaseModel):
     status: str = Field(..., description="The current status of this announcement.")
 
 
-class MaintenanceWindow(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    start_datetime: str = Field(..., description="Start date and time of the maintenance window.")
-    end_datetime: str = Field(..., description="End date and time of the maintenance window.")
-
-
 class DailySchedule(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -131,6 +124,13 @@ class WeeklySchedule(BaseModel):
     friday: list[DailySchedule] = Field(..., description="Trading hours for Friday. May contain multiple sessions.")
     saturday: list[DailySchedule] = Field(..., description="Trading hours for Saturday. May contain multiple sessions.")
     sunday: list[DailySchedule] = Field(..., description="Trading hours for Sunday. May contain multiple sessions.")
+
+
+class MaintenanceWindow(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    start_datetime: str = Field(..., description="Start date and time of the maintenance window.")
+    end_datetime: str = Field(..., description="End date and time of the maintenance window.")
 
 
 class Schedule(BaseModel):
@@ -526,6 +526,17 @@ class MarketOrderbookFp(BaseModel):
     orderbook_fp: OrderbookCountFp
 
 
+class EventFeeChange(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    id: str = Field(..., description="Unique identifier for this fee change")
+    event_ticker: str = Field(..., description="Event ticker this fee change applies to")
+    series_ticker: str = Field(..., description="Series ticker for the event")
+    fee_type_override: FeeType | None = Field(None, description="New fee type override for the event. When null, the event clears any prior override and falls back to the parent series' fee structure.")
+    fee_multiplier_override: float | None = Field(None, description="New fee multiplier override for the event. When null, the event clears any prior override and falls back to the parent series' fee multiplier.")
+    scheduled_ts: str = Field(..., description="Timestamp when this fee change is scheduled to take effect")
+
+
 class MarketMetadata(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -660,7 +671,7 @@ class Series(BaseModel):
     contract_url: str | None = Field(None, description="ContractUrl provides a direct link to the original filing of the contract which underlies the series.")
     contract_terms_url: str | None = Field(None, description="ContractTermsUrl is the URL to the current terms of the contract underlying the series.")
     product_metadata: dict[str, Any] | None = Field(None, description="Internal product metadata of the series.")
-    fee_type: str = Field(..., description="FeeType is a string representing the series' fee structure. Fee structures can be found at https://kalshi.com/docs/kalshi-fee-schedule.pdf. 'quadratic' is described by the General Trading Fees Table, 'quadratic_with_maker_fees' is described by the General Trading Fees Table with maker fees described in the Maker Fees section, 'flat' is described by the Specific Trading Fees Table.")
+    fee_type: FeeType = Field(..., description="FeeType is a string representing the series' fee structure. Fee structures can be found at https://kalshi.com/docs/kalshi-fee-schedule.pdf. 'quadratic' is described by the General Trading Fees Table, 'quadratic_with_maker_fees' is described by the General Trading Fees Table with maker fees described in the Maker Fees section, 'flat' is described by the Specific Trading Fees Table.")
     fee_multiplier: float = Field(..., description="FeeMultiplier is a floating point multiplier applied to the fee calculations.")
     additional_prohibitions: list[str] | None = Field(None, description="AdditionalProhibitions is a list of additional trading prohibitions for this series.")
     volume_fp: str | None = Field(None, description="String representation of the total number of contracts traded across all events in this series.")
@@ -672,6 +683,6 @@ class SeriesFeeChange(BaseModel):
 
     id: str = Field(..., description="Unique identifier for this fee change")
     series_ticker: str = Field(..., description="Series ticker this fee change applies to")
-    fee_type: str = Field(..., description="New fee type for the series")
+    fee_type: FeeType = Field(..., description="New fee type for the series")
     fee_multiplier: float = Field(..., description="New fee multiplier for the series")
     scheduled_ts: str = Field(..., description="Timestamp when this fee change is scheduled to take effect")

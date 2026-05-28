@@ -134,8 +134,9 @@ All models use `extra="ignore"` (forward-compatible with spec additions) and inc
 |---|---|---|
 | `KALSHI_HTTP_BASE_URL` (env var) | Derived from environment | Override HTTP base URL |
 | `environment` | `DEMO` | `Environment.DEMO` or `Environment.PROD` |
-| `read_rate` | 20.0 | Read requests per second |
-| `write_rate` | 10.0 | Write requests per second |
+| `read_rate` | 20.0 | Fallback read token rate (auto-configured from API on first request) |
+| `write_rate` | 10.0 | Fallback write token rate (auto-configured from API on first request) |
+| `auto_configure_rates` | `True` | Fetch actual rate limits and per-endpoint costs from `/account/limits` and `/account/endpoint_costs` on first request. Set `False` to use fallback values only. |
 | `max_retries` | 4 | Retry count for 429s and network errors |
 | `base_retry_delay` | 0.1s | Initial backoff delay |
 | `connect_timeout` | 5.0s | Connection timeout |

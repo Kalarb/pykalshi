@@ -37,6 +37,7 @@ class ClientConfig:
     ws_base_url: Optional[str] = None
     read_rate: float = 20.0
     write_rate: float = 10.0
+    auto_configure_rates: bool = True
     max_retries: int = 4
     base_retry_delay: float = 0.1
     connect_timeout: float = 5.0
