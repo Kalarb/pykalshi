@@ -116,7 +116,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Python
         run: uv python install 3.12
@@ -137,7 +137,7 @@ jobs:
           git push origin "$tag"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           token: ${{ steps.app-token.outputs.token }}
           tag_name: v${{ needs.version-bump.outputs.new_version }}

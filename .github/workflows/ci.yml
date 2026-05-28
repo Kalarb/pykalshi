@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -39,7 +39,7 @@ jobs:
         run: uv sync --extra testing
 
       - name: Run REST unit tests
-        run: uv run pytest tests/test_auth.py tests/test_rate_limiter.py tests/test_http_client.py tests/test_config.py tests/test_exceptions.py tests/test_models.py tests/test_observability.py -v --cov=pykalshi --cov-report=term-missing
+        run: uv run pytest tests/test_auth.py tests/test_rate_limiter.py tests/test_http_client.py tests/test_config.py tests/test_exceptions.py tests/test_models.py tests/test_observability.py tests/test_api_utils.py -v --cov=pykalshi --cov-report=term-missing
 
   ws-unit-tests:
     runs-on: ubuntu-latest
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -122,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -152,7 +152,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -192,7 +192,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 

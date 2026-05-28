@@ -32,23 +32,24 @@ class ReadWriteTokenBucket:
 
         self._read_history: deque[Tuple[float, float]] = deque()
         self._write_history: deque[Tuple[float, float]] = deque()
-        self._lock = asyncio.Lock()
+        self._read_lock = asyncio.Lock()
+        self._write_lock = asyncio.Lock()
 
-    def _refill(self) -> None:
-        now = time.monotonic()
-        expiry_threshold = now - self.window_size
-
+    def _refill_read(self) -> None:
+        expiry = time.monotonic() - self.window_size
         while self._read_history:
-            timestamp, cost = self._read_history[0]
-            if timestamp <= expiry_threshold:
+            ts, cost = self._read_history[0]
+            if ts <= expiry:
                 self._read_history.popleft()
                 self.read_tokens = min(self.read_capacity, self.read_tokens + cost)
             else:
                 break
 
+    def _refill_write(self) -> None:
+        expiry = time.monotonic() - self.window_size
         while self._write_history:
-            timestamp, cost = self._write_history[0]
-            if timestamp <= expiry_threshold:
+            ts, cost = self._write_history[0]
+            if ts <= expiry:
                 self._write_history.popleft()
                 self.write_tokens = min(self.write_capacity, self.write_tokens + cost)
             else:
@@ -101,9 +102,13 @@ class ReadWriteTokenBucket:
         if write_cost == 0 and global_cost > self.read_capacity:
             raise ValueError(f"Read cost {global_cost} exceeds read capacity")
 
-        async with self._lock:
+        lock = self._write_lock if write_cost > 0 else self._read_lock
+        async with lock:
             while True:
-                self._refill()
+                if write_cost > 0:
+                    self._refill_write()
+                else:
+                    self._refill_read()
                 if self._can_proceed(global_cost, write_cost):
                     self._consume(global_cost, write_cost)
                     return
@@ -122,8 +127,12 @@ class ReadWriteTokenBucket:
         if write_cost == 0 and global_cost > self.read_capacity:
             return False
 
-        async with self._lock:
-            self._refill()
+        lock = self._write_lock if write_cost > 0 else self._read_lock
+        async with lock:
+            if write_cost > 0:
+                self._refill_write()
+            else:
+                self._refill_read()
             if self._can_proceed(global_cost, write_cost):
                 self._consume(global_cost, write_cost)
                 return True
@@ -133,8 +142,12 @@ class ReadWriteTokenBucket:
         self, global_cost: float = 1.0, write_cost: float = 0.0
     ) -> float:
         """Estimate wait time without consuming tokens."""
-        async with self._lock:
-            self._refill()
+        lock = self._write_lock if write_cost > 0 else self._read_lock
+        async with lock:
+            if write_cost > 0:
+                self._refill_write()
+            else:
+                self._refill_read()
             if self._can_proceed(global_cost, write_cost):
                 return 0.0
             return self._calculate_wait_time(global_cost, write_cost)
@@ -153,13 +166,14 @@ class ReadWriteTokenBucket:
         """
         if read_rate <= 0 or write_rate <= 0:
             raise ValueError("Rates must be positive")
-        async with self._lock:
-            self.read_rate = read_rate
-            self.write_rate = write_rate
-            self.read_capacity = read_capacity if read_capacity is not None else read_rate
-            self.write_capacity = write_capacity if write_capacity is not None else write_rate
-            self.read_tokens = min(self.read_tokens, self.read_capacity)
-            self.write_tokens = min(self.write_tokens, self.write_capacity)
+        async with self._read_lock:
+            async with self._write_lock:
+                self.read_rate = read_rate
+                self.write_rate = write_rate
+                self.read_capacity = read_capacity if read_capacity is not None else read_rate
+                self.write_capacity = write_capacity if write_capacity is not None else write_rate
+                self.read_tokens = min(self.read_tokens, self.read_capacity)
+                self.write_tokens = min(self.write_tokens, self.write_capacity)
 
     def get_status(self) -> dict[str, object]:
         """Return current token bucket state for debugging."""
