@@ -52,6 +52,25 @@ class TestReadWriteTokenBucket:
         assert bucket.write_capacity == 10.0
 
     @pytest.mark.asyncio
+    async def test_reconfigure_with_capacity(self) -> None:
+        bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
+        await bucket.reconfigure(
+            read_rate=300.0, write_rate=300.0,
+            read_capacity=300.0, write_capacity=600.0,
+        )
+        assert bucket.read_rate == 300.0
+        assert bucket.write_rate == 300.0
+        assert bucket.read_capacity == 300.0
+        assert bucket.write_capacity == 600.0
+
+    @pytest.mark.asyncio
+    async def test_reconfigure_capacity_defaults_to_rate(self) -> None:
+        bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
+        await bucket.reconfigure(read_rate=50.0, write_rate=25.0)
+        assert bucket.read_capacity == 50.0
+        assert bucket.write_capacity == 25.0
+
+    @pytest.mark.asyncio
     async def test_reconfigure_invalid(self) -> None:
         bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
         with pytest.raises(ValueError, match="positive"):

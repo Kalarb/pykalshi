@@ -950,3 +950,133 @@ class TestEmptyPathParamValidation:
         async with _client(creds, cfg, {}) as c:
             with pytest.raises(ValueError, match="order_group_id"):
                 await c.reset_order_group("")
+
+
+# =============================================================================
+# Rate limit auto-configuration
+# =============================================================================
+
+
+def _auto_cfg() -> ClientConfig:
+    """Config with auto_configure_rates enabled."""
+    return ClientConfig(
+        environment=Environment.DEMO,
+        http_base_url="http://localhost:0",
+        ws_base_url="ws://localhost:0",
+        auto_configure_rates=True,
+    )
+
+
+_LIMITS_RESPONSE = {
+    "usage_tier": "advanced",
+    "read": {"refill_rate": 300, "bucket_capacity": 300},
+    "write": {"refill_rate": 300, "bucket_capacity": 600},
+}
+
+_COSTS_RESPONSE = {
+    "default_cost": 10,
+    "endpoint_costs": [
+        {"method": "POST", "path": "/trade-api/v2/portfolio/orders", "cost": 15},
+        {"method": "DELETE", "path": "/trade-api/v2/portfolio/orders/:order_id", "cost": 3},
+        {"method": "GET", "path": "/trade-api/v2/portfolio/orders/:order_id", "cost": 2},
+    ],
+}
+
+_RATE_LIMIT_ROUTES = {
+    ("GET", "/trade-api/v2/account/limits"): _LIMITS_RESPONSE,
+    ("GET", "/trade-api/v2/account/endpoint_costs"): _COSTS_RESPONSE,
+}
+
+
+class TestAutoConfigureRates:
+    @pytest.mark.asyncio
+    async def test_configure_updates_limiter(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        async with _client(creds, cfg, _RATE_LIMIT_ROUTES) as c:
+            await c.configure_rate_limits()
+            assert c.limiter.read_rate == 300.0
+            assert c.limiter.write_rate == 300.0
+            assert c.limiter.read_capacity == 300.0
+            assert c.limiter.write_capacity == 600.0
+
+    @pytest.mark.asyncio
+    async def test_configure_sets_default_cost(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        async with _client(creds, cfg, _RATE_LIMIT_ROUTES) as c:
+            await c.configure_rate_limits()
+            assert c._default_cost == 10.0
+
+    @pytest.mark.asyncio
+    async def test_configure_builds_cost_patterns(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        async with _client(creds, cfg, _RATE_LIMIT_ROUTES) as c:
+            await c.configure_rate_limits()
+            assert len(c._cost_patterns) == 3
+
+    @pytest.mark.asyncio
+    async def test_resolve_cost_default(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        async with _client(creds, cfg, _RATE_LIMIT_ROUTES) as c:
+            await c.configure_rate_limits()
+            # Unknown path should return default cost
+            assert c._resolve_cost("GET", "/trade-api/v2/markets") == 10.0
+
+    @pytest.mark.asyncio
+    async def test_resolve_cost_non_default(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        async with _client(creds, cfg, _RATE_LIMIT_ROUTES) as c:
+            await c.configure_rate_limits()
+            assert c._resolve_cost("POST", "/trade-api/v2/portfolio/orders") == 15.0
+            assert c._resolve_cost("DELETE", "/trade-api/v2/portfolio/orders/abc123") == 3.0
+            assert c._resolve_cost("GET", "/trade-api/v2/portfolio/orders/abc123") == 2.0
+
+    @pytest.mark.asyncio
+    async def test_auto_configure_on_first_request(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        routes = {
+            **_RATE_LIMIT_ROUTES,
+            ("GET", "/trade-api/v2/exchange/status"): {
+                "exchange_active": True, "trading_active": True,
+            },
+        }
+        async with _client(creds, cfg, routes) as c:
+            assert not c._rates_configured
+            await c.get_exchange_status()
+            assert c._rates_configured
+            assert c._default_cost == 10.0
+
+    @pytest.mark.asyncio
+    async def test_auto_configure_failure_falls_back(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        routes = {
+            # No rate limit routes — auto-config will fail
+            ("GET", "/trade-api/v2/exchange/status"): {
+                "exchange_active": True, "trading_active": True,
+            },
+        }
+        async with _client(creds, cfg, routes) as c:
+            # Should not raise — falls back to defaults
+            result = await c.get_exchange_status()
+            assert result.exchange_active is True
+            assert c._rates_configured  # marked as configured (no retry)
+            assert c._default_cost == 1.0  # still at fallback
+
+    @pytest.mark.asyncio
+    async def test_auto_configure_disabled(self, creds: KalshiCredentials, cfg: ClientConfig) -> None:
+        routes = {
+            ("GET", "/trade-api/v2/exchange/status"): {
+                "exchange_active": True, "trading_active": True,
+            },
+        }
+        async with _client(creds, cfg, routes) as c:
+            await c.get_exchange_status()
+            assert not c._rates_configured  # auto-config was off
+            assert c._default_cost == 1.0
+
+    @pytest.mark.asyncio
+    async def test_configure_idempotent(self, creds: KalshiCredentials) -> None:
+        cfg = _auto_cfg()
+        async with _client(creds, cfg, _RATE_LIMIT_ROUTES) as c:
+            await c.configure_rate_limits()
+            await c.configure_rate_limits()  # should be a no-op
+            assert c.limiter.read_rate == 300.0

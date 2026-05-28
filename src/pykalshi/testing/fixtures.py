@@ -15,9 +15,14 @@ def mock_credentials() -> KalshiCredentials:
 
 
 def test_config() -> ClientConfig:
-    """Configuration suitable for unit tests."""
+    """Configuration suitable for unit tests.
+
+    Disables auto_configure_rates since mock transports don't serve
+    the /account/limits and /account/endpoint_costs routes.
+    """
     return ClientConfig(
         environment=Environment.DEMO,
         http_base_url="http://localhost:0",
         ws_base_url="ws://localhost:0",
+        auto_configure_rates=False,
     )

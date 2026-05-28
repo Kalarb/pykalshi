@@ -139,17 +139,27 @@ class ReadWriteTokenBucket:
                 return 0.0
             return self._calculate_wait_time(global_cost, write_cost)
 
-    async def reconfigure(self, read_rate: float, write_rate: float) -> None:
-        """Update rate limits (e.g., after fetching from API)."""
+    async def reconfigure(
+        self,
+        read_rate: float,
+        write_rate: float,
+        read_capacity: float | None = None,
+        write_capacity: float | None = None,
+    ) -> None:
+        """Update rate limits (e.g., after fetching from API).
+
+        Capacity defaults to rate when not provided (one second of budget).
+        Kalshi's write bucket on higher tiers has capacity > rate for burst.
+        """
         if read_rate <= 0 or write_rate <= 0:
             raise ValueError("Rates must be positive")
         async with self._lock:
             self.read_rate = read_rate
             self.write_rate = write_rate
-            self.read_capacity = read_rate
-            self.write_capacity = write_rate
-            self.read_tokens = min(self.read_tokens, read_rate)
-            self.write_tokens = min(self.write_tokens, write_rate)
+            self.read_capacity = read_capacity if read_capacity is not None else read_rate
+            self.write_capacity = write_capacity if write_capacity is not None else write_rate
+            self.read_tokens = min(self.read_tokens, self.read_capacity)
+            self.write_tokens = min(self.write_tokens, self.write_capacity)
 
     def get_status(self) -> dict[str, object]:
         """Return current token bucket state for debugging."""
