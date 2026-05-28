@@ -189,18 +189,7 @@ class KalshiWebSocketClient:
                 if ok_state and server_tickers is not None:
                     ok_state.markets = set(server_tickers)
                 if ok_state and seq is not None:
-                    if ok_state.seq != 0 and (ok_state.seq + 1) != seq:
-                        self._sequence_gaps.add(1)
-                        logger.warning(
-                            "Gap on %s: expected %d, got %d",
-                            ok_state.name,
-                            ok_state.seq + 1,
-                            seq,
-                        )
-                        raise KalshiSequenceGapError(
-                            ok_state.name, ok_state.seq + 1, seq
-                        )
-                    ok_state.seq = seq
+                    self._check_and_update_seq(ok_state, seq)
 
             elif msg_type == "unsubscribed":
                 sid = data.get("sid")
@@ -221,18 +210,7 @@ class KalshiWebSocketClient:
                             sid,
                         )
                     elif seq is not None:
-                        if msg_state.seq != 0 and (msg_state.seq + 1) != seq:
-                            self._sequence_gaps.add(1)
-                            logger.warning(
-                                "Gap on %s: expected %d, got %d",
-                                msg_state.name,
-                                msg_state.seq + 1,
-                                seq,
-                            )
-                            raise KalshiSequenceGapError(
-                                msg_state.name, msg_state.seq + 1, seq
-                            )
-                        msg_state.seq = seq
+                        self._check_and_update_seq(msg_state, seq)
 
         if self.on_message_callback:
             task: asyncio.Task[None] = asyncio.ensure_future(
@@ -354,6 +332,19 @@ class KalshiWebSocketClient:
         async with self._state_lock:
             if saved_markets:
                 await self._send_subscribe(channel_name, list(saved_markets))
+
+    def _check_and_update_seq(self, state: ChannelState, seq: int) -> None:
+        """Validate sequence continuity and update. Raises on gap."""
+        if state.seq != 0 and (state.seq + 1) != seq:
+            self._sequence_gaps.add(1)
+            logger.warning(
+                "Gap on %s: expected %d, got %d",
+                state.name,
+                state.seq + 1,
+                seq,
+            )
+            raise KalshiSequenceGapError(state.name, state.seq + 1, seq)
+        state.seq = seq
 
     # --- Internal helpers ---
 
