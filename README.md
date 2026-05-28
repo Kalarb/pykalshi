@@ -1,3 +1,5 @@
+[![PyPI](https://img.shields.io/pypi/v/pykalshi-client)](https://pypi.org/project/pykalshi-client/)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 ![REST Unit Tests](https://github.com/Kalarb/pykalshi/actions/workflows/rest-unit-tests.yml/badge.svg)
 ![REST Integration](https://github.com/Kalarb/pykalshi/actions/workflows/rest-integration.yml/badge.svg)
 [![OpenAPI](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/yardboy27/65579a629076066fcbf09520ca76301a/raw/openapi-status.json)](https://github.com/Kalarb/pykalshi/actions/workflows/openapi-validation.yml)
@@ -8,20 +10,25 @@
 
 ![Lint](https://github.com/Kalarb/pykalshi/actions/workflows/lint.yml/badge.svg)
 
-# pykalshi
+# pykalshi-client
 
-Shared async Python client for the [Kalshi](https://kalshi.com) prediction market API.
+Async Python client for the [Kalshi](https://kalshi.com) prediction market API.
 
 Pure 1:1 reflection of the Kalshi API. Each method maps to exactly one API endpoint. Pagination loops, delta polling, and other application-level helpers belong in the consumer, not here.
 
 ## Install
 
 ```bash
-pip install git+ssh://git@github.com/Kalarb/pykalshi.git
+pip install pykalshi-client
 
 # With OpenTelemetry support
-pip install "pykalshi[otel] @ git+ssh://git@github.com/Kalarb/pykalshi.git"
+pip install "pykalshi-client[otel]"
 ```
+
+> **Note:** The PyPI package is `pykalshi-client`, but the import name is `pykalshi`:
+> ```python
+> from pykalshi import KalshiHttpClient
+> ```
 
 ## Quick Start
 
