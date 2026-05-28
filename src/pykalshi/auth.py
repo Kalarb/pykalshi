@@ -7,6 +7,7 @@ import os
 import time
 from dataclasses import dataclass
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
@@ -32,7 +33,7 @@ class KalshiCredentials:
                 key = serialization.load_pem_private_key(f.read(), password=None)
         except FileNotFoundError:
             raise KalshiAuthError(f"Private key file not found at: {resolved}")
-        except Exception as e:
+        except (ValueError, TypeError, UnsupportedAlgorithm) as e:
             raise KalshiAuthError(f"Failed to load private key from {resolved}: {e}") from e
         if not isinstance(key, rsa.RSAPrivateKey):
             raise KalshiAuthError(f"Key at {resolved} is not an RSA private key")
@@ -43,7 +44,7 @@ class KalshiCredentials:
         """Load credentials from a PEM-encoded string."""
         try:
             key = serialization.load_pem_private_key(pem.encode("utf-8"), password=None)
-        except Exception as e:
+        except (ValueError, TypeError, UnsupportedAlgorithm) as e:
             raise KalshiAuthError(f"Failed to load private key from PEM string: {e}") from e
         if not isinstance(key, rsa.RSAPrivateKey):
             raise KalshiAuthError("Provided PEM is not an RSA private key")

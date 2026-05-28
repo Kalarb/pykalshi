@@ -18,6 +18,8 @@ from ._observability import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
 
+_RESUBSCRIBE_DELAY = 0.1  # seconds — brief pause between unsubscribe and resubscribe
+
 # Maps message type -> expected channel name.
 # None means the message can arrive on multiple channels (skip validation).
 MSG_TYPE_TO_CHANNEL: dict[str, str | None] = {
@@ -83,6 +85,7 @@ class KalshiWebSocketClient:
         self.channels: dict[str, ChannelState] = {}
         self._sid_map: dict[int, ChannelState] = {}
         self._pending_init_subs: dict[int, str] = {}
+        self._state_lock = asyncio.Lock()
 
         tracer = get_tracer("pykalshi.ws")
         meter = get_meter("pykalshi.ws")
@@ -160,75 +163,76 @@ class KalshiWebSocketClient:
             logger.error("JSON decode error: %s", e)
             return
 
-        msg_type = data.get("type")
-        resp_id = data.get("id")
+        async with self._state_lock:
+            msg_type = data.get("type")
+            resp_id = data.get("id")
 
-        if msg_type == "subscribed":
-            msg_body = data.get("msg", {})
-            sid = msg_body.get("sid")
-            channel_name = self._pending_init_subs.pop(resp_id, None)
-            if channel_name and channel_name in self.channels:
-                chan_state = self.channels[channel_name]
-                chan_state.sid = sid
-                self._sid_map[sid] = chan_state
-                if chan_state.pending_markets:
-                    await self._send_update_sub(
-                        sid, list(chan_state.pending_markets), "add_markets"
-                    )
-                    chan_state.pending_markets.clear()
+            if msg_type == "subscribed":
+                msg_body = data.get("msg", {})
+                sid = msg_body.get("sid")
+                channel_name = self._pending_init_subs.pop(resp_id, None)
+                if channel_name and channel_name in self.channels:
+                    chan_state = self.channels[channel_name]
+                    chan_state.sid = sid
+                    self._sid_map[sid] = chan_state
+                    if chan_state.pending_markets:
+                        await self._send_update_sub(
+                            sid, list(chan_state.pending_markets), "add_markets"
+                        )
+                        chan_state.pending_markets.clear()
 
-        elif msg_type == "ok":
-            sid = data.get("sid")
-            seq = data.get("seq")
-            server_tickers = data.get("market_tickers")
-            ok_state = self._sid_map.get(sid)
-            if ok_state and server_tickers is not None:
-                ok_state.markets = set(server_tickers)
-            if ok_state and seq is not None:
-                if ok_state.seq != 0 and (ok_state.seq + 1) != seq:
-                    self._sequence_gaps.add(1)
-                    logger.warning(
-                        "Gap on %s: expected %d, got %d",
-                        ok_state.name,
-                        ok_state.seq + 1,
-                        seq,
-                    )
-                    raise KalshiSequenceGapError(
-                        ok_state.name, ok_state.seq + 1, seq
-                    )
-                ok_state.seq = seq
-
-        elif msg_type == "unsubscribed":
-            sid = data.get("sid")
-            self._sid_map.pop(sid, None)
-
-        elif msg_type in MSG_TYPE_TO_CHANNEL:
-            sid = data.get("sid")
-            seq = data.get("seq")
-            msg_state = self._sid_map.get(sid)
-            if msg_state:
-                expected_channel = MSG_TYPE_TO_CHANNEL[msg_type]
-                if expected_channel is not None and msg_state.name != expected_channel:
-                    logger.warning(
-                        "Mismatch! Received %s (needs %s) on channel %s (SID %s). Ignoring.",
-                        msg_type,
-                        expected_channel,
-                        msg_state.name,
-                        sid,
-                    )
-                elif seq is not None:
-                    if msg_state.seq != 0 and (msg_state.seq + 1) != seq:
+            elif msg_type == "ok":
+                sid = data.get("sid")
+                seq = data.get("seq")
+                server_tickers = data.get("market_tickers")
+                ok_state = self._sid_map.get(sid)
+                if ok_state and server_tickers is not None:
+                    ok_state.markets = set(server_tickers)
+                if ok_state and seq is not None:
+                    if ok_state.seq != 0 and (ok_state.seq + 1) != seq:
                         self._sequence_gaps.add(1)
                         logger.warning(
                             "Gap on %s: expected %d, got %d",
-                            msg_state.name,
-                            msg_state.seq + 1,
+                            ok_state.name,
+                            ok_state.seq + 1,
                             seq,
                         )
                         raise KalshiSequenceGapError(
-                            msg_state.name, msg_state.seq + 1, seq
+                            ok_state.name, ok_state.seq + 1, seq
                         )
-                    msg_state.seq = seq
+                    ok_state.seq = seq
+
+            elif msg_type == "unsubscribed":
+                sid = data.get("sid")
+                self._sid_map.pop(sid, None)
+
+            elif msg_type in MSG_TYPE_TO_CHANNEL:
+                sid = data.get("sid")
+                seq = data.get("seq")
+                msg_state = self._sid_map.get(sid)
+                if msg_state:
+                    expected_channel = MSG_TYPE_TO_CHANNEL[msg_type]
+                    if expected_channel is not None and msg_state.name != expected_channel:
+                        logger.warning(
+                            "Mismatch! Received %s (needs %s) on channel %s (SID %s). Ignoring.",
+                            msg_type,
+                            expected_channel,
+                            msg_state.name,
+                            sid,
+                        )
+                    elif seq is not None:
+                        if msg_state.seq != 0 and (msg_state.seq + 1) != seq:
+                            self._sequence_gaps.add(1)
+                            logger.warning(
+                                "Gap on %s: expected %d, got %d",
+                                msg_state.name,
+                                msg_state.seq + 1,
+                                seq,
+                            )
+                            raise KalshiSequenceGapError(
+                                msg_state.name, msg_state.seq + 1, seq
+                            )
+                        msg_state.seq = seq
 
         if self.on_message_callback:
             task: asyncio.Task[None] = asyncio.ensure_future(
@@ -238,72 +242,76 @@ class KalshiWebSocketClient:
 
     async def add_markets(self, market_tickers: list[str], channels: list[Channel | str]) -> None:
         """Batch-subscribe multiple markets across channels."""
-        for channel_name in channels:
-            if channel_name not in self.channels:
-                self.channels[channel_name] = ChannelState(name=channel_name)
-            chan_state = self.channels[channel_name]
-            new_tickers = [t for t in market_tickers if t not in chan_state.markets]
-            if not new_tickers:
-                continue
-            chan_state.markets.update(new_tickers)
-            if chan_state.sid is not None:
-                await self._send_update_sub(chan_state.sid, new_tickers, "add_markets")
-            else:
-                await self._send_subscribe(channel_name, list(chan_state.markets))
+        async with self._state_lock:
+            for channel_name in channels:
+                if channel_name not in self.channels:
+                    self.channels[channel_name] = ChannelState(name=channel_name)
+                chan_state = self.channels[channel_name]
+                new_tickers = [t for t in market_tickers if t not in chan_state.markets]
+                if not new_tickers:
+                    continue
+                chan_state.markets.update(new_tickers)
+                if chan_state.sid is not None:
+                    await self._send_update_sub(chan_state.sid, new_tickers, "add_markets")
+                else:
+                    await self._send_subscribe(channel_name, list(chan_state.markets))
 
     async def add_market(self, market_ticker: str, channels: list[Channel | str]) -> None:
         """Add a single market to subscription list."""
-        for channel_name in channels:
-            if channel_name not in self.channels:
-                self.channels[channel_name] = ChannelState(name=channel_name)
-            chan_state = self.channels[channel_name]
-            if market_ticker in chan_state.markets:
-                continue
-            chan_state.markets.add(market_ticker)
-            if chan_state.sid is None:
-                is_pending = any(
-                    c == channel_name for c in self._pending_init_subs.values()
-                )
-                if not is_pending:
-                    await self._send_subscribe(channel_name, [market_ticker])
+        async with self._state_lock:
+            for channel_name in channels:
+                if channel_name not in self.channels:
+                    self.channels[channel_name] = ChannelState(name=channel_name)
+                chan_state = self.channels[channel_name]
+                if market_ticker in chan_state.markets:
+                    continue
+                chan_state.markets.add(market_ticker)
+                if chan_state.sid is None:
+                    is_pending = any(
+                        c == channel_name for c in self._pending_init_subs.values()
+                    )
+                    if not is_pending:
+                        await self._send_subscribe(channel_name, [market_ticker])
+                    else:
+                        chan_state.pending_markets.add(market_ticker)
                 else:
-                    chan_state.pending_markets.add(market_ticker)
-            else:
-                await self._send_update_sub(
-                    chan_state.sid, [market_ticker], "add_markets"
-                )
+                    await self._send_update_sub(
+                        chan_state.sid, [market_ticker], "add_markets"
+                    )
 
     async def remove_market(self, market_ticker: str, channels: list[Channel | str]) -> None:
         """Remove a market from subscription list."""
-        for channel_name in channels:
-            if channel_name not in self.channels:
-                continue
-            chan_state = self.channels[channel_name]
-            if market_ticker not in chan_state.markets:
-                continue
-            chan_state.markets.remove(market_ticker)
-            if chan_state.sid is not None:
-                if len(chan_state.markets) == 0:
-                    old_sid = chan_state.sid
-                    self._sid_map.pop(old_sid, None)
-                    chan_state.sid = None
-                    chan_state.seq = 0
-                    del self.channels[channel_name]
-                    await self._send_unsubscribe(old_sid)
-                else:
-                    await self._send_update_sub(
-                        sid=chan_state.sid,
-                        tickers=[market_ticker],
-                        action="delete_markets",
-                    )
+        async with self._state_lock:
+            for channel_name in channels:
+                if channel_name not in self.channels:
+                    continue
+                chan_state = self.channels[channel_name]
+                if market_ticker not in chan_state.markets:
+                    continue
+                chan_state.markets.remove(market_ticker)
+                if chan_state.sid is not None:
+                    if len(chan_state.markets) == 0:
+                        old_sid = chan_state.sid
+                        self._sid_map.pop(old_sid, None)
+                        chan_state.sid = None
+                        chan_state.seq = 0
+                        del self.channels[channel_name]
+                        await self._send_unsubscribe(old_sid)
+                    else:
+                        await self._send_update_sub(
+                            sid=chan_state.sid,
+                            tickers=[market_ticker],
+                            action="delete_markets",
+                        )
 
     async def unsubscribe_all(self) -> None:
         """Unsubscribe from all channels and markets."""
-        to_remove = [
-            (channel_name, list(state.markets))
-            for channel_name, state in self.channels.items()
-            if state.markets
-        ]
+        async with self._state_lock:
+            to_remove = [
+                (channel_name, list(state.markets))
+                for channel_name, state in self.channels.items()
+                if state.markets
+            ]
         for channel_name, tickers in to_remove:
             for ticker in tickers:
                 await self.remove_market(ticker, [channel_name])
@@ -313,10 +321,11 @@ class KalshiWebSocketClient:
         self, market_tickers: list[str], channel: str = "orderbook_delta"
     ) -> None:
         """Request orderbook snapshot without modifying subscription."""
-        chan_state = self.channels.get(channel)
-        if chan_state is None or chan_state.sid is None:
-            raise ValueError(f"Not subscribed to {channel}")
-        await self._send_update_sub(chan_state.sid, market_tickers, "get_snapshot")
+        async with self._state_lock:
+            chan_state = self.channels.get(channel)
+            if chan_state is None or chan_state.sid is None:
+                raise ValueError(f"Not subscribed to {channel}")
+            await self._send_update_sub(chan_state.sid, market_tickers, "get_snapshot")
 
     async def resubscribe_channel(self, channel_name: str) -> None:
         """Unsubscribe and resubscribe a channel to recover from sequence gaps.
@@ -327,18 +336,24 @@ class KalshiWebSocketClient:
             except KalshiSequenceGapError as e:
                 await ws_client.resubscribe_channel(e.channel)
         """
-        chan_state = self.channels.get(channel_name)
-        if chan_state is None:
-            return
-        old_sid = chan_state.sid
-        self._sid_map.pop(old_sid, None)
-        chan_state.sid = None
-        chan_state.seq = 0
-        if old_sid is not None:
-            await self._send_unsubscribe(old_sid)
-            await asyncio.sleep(0.1)
-        if chan_state.markets:
-            await self._send_subscribe(chan_state.name, list(chan_state.markets))
+        async with self._state_lock:
+            chan_state = self.channels.get(channel_name)
+            if chan_state is None:
+                return
+            old_sid = chan_state.sid
+            saved_markets = set(chan_state.markets)
+            self._sid_map.pop(old_sid, None)
+            chan_state.sid = None
+            chan_state.seq = 0
+            if old_sid is not None:
+                await self._send_unsubscribe(old_sid)
+
+        # Sleep outside the lock to avoid blocking the listener
+        await asyncio.sleep(_RESUBSCRIBE_DELAY)
+
+        async with self._state_lock:
+            if saved_markets:
+                await self._send_subscribe(channel_name, list(saved_markets))
 
     # --- Internal helpers ---
 

@@ -1,6 +1,6 @@
 [![PyPI](https://img.shields.io/pypi/v/pykalshi-client)](https://pypi.org/project/pykalshi-client/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Kalarb/pykalshi/blob/main/LICENSE)
-![CI](https://github.com/Kalarb/pykalshi/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/Kalarb/pykalshi/actions/workflows/ci.yml/badge.svg)](https://github.com/Kalarb/pykalshi/actions/workflows/ci.yml)
 [![OpenAPI](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/yardboy27/65579a629076066fcbf09520ca76301a/raw/openapi-status.json)](https://github.com/Kalarb/pykalshi/actions/workflows/openapi-validation.yml)
 [![AsyncAPI](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/yardboy27/65579a629076066fcbf09520ca76301a/raw/asyncapi-status.json)](https://github.com/Kalarb/pykalshi/actions/workflows/asyncapi-validation.yml)
 

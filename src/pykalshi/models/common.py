@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class PriceRange(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="ignore")
 
     min_price_cents: Optional[int] = None
     max_price_cents: Optional[int] = None
