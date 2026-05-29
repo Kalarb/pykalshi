@@ -665,6 +665,7 @@ class TestOrderGroupsIntegration:
 
 
 @pytest.mark.skipif(not _HAS_CREDS, reason="No DEMO credentials in .env")
+@pytest.mark.timeout(60)
 class TestOrdersIntegration:
     @pytest.mark.asyncio
     async def test_order_create_and_cancel(self, client: KalshiHttpClient) -> None:
@@ -842,6 +843,7 @@ class TestOrdersIntegration:
 
 
 @pytest.mark.skipif(not _HAS_CREDS, reason="No DEMO credentials in .env")
+@pytest.mark.timeout(60)
 class TestRfqIntegration:
     @pytest.mark.asyncio
     async def test_rfq_create_and_delete(self, client: KalshiHttpClient) -> None:
