@@ -55,12 +55,12 @@ class ReadWriteTokenBucket:
             else:
                 break
 
-    def _can_proceed(self, global_cost: float, write_cost: float) -> bool:
+    def _can_proceed(self, read_cost: float, write_cost: float) -> bool:
         if write_cost > 0:
             return self.write_tokens >= write_cost
-        return self.read_tokens >= global_cost
+        return self.read_tokens >= read_cost
 
-    def _calculate_wait_time(self, global_cost: float, write_cost: float) -> float:
+    def _calculate_wait_time(self, read_cost: float, write_cost: float) -> float:
         now = time.monotonic()
 
         if write_cost > 0:
@@ -75,9 +75,9 @@ class ReadWriteTokenBucket:
                     return max(0.0, target_time - now)
             return 1.0
         else:
-            if self.read_tokens >= global_cost:
+            if self.read_tokens >= read_cost:
                 return 0.0
-            needed = global_cost - self.read_tokens
+            needed = read_cost - self.read_tokens
             recovered = 0.0
             for timestamp, amount in self._read_history:
                 recovered += amount
@@ -86,45 +86,43 @@ class ReadWriteTokenBucket:
                     return max(0.0, target_time - now)
             return 1.0
 
-    def _consume(self, global_cost: float, write_cost: float) -> None:
+    def _consume(self, read_cost: float, write_cost: float) -> None:
         now = time.monotonic()
         if write_cost > 0:
             self.write_tokens -= write_cost
             self._write_history.append((now, write_cost))
         else:
-            self.read_tokens -= global_cost
-            self._read_history.append((now, global_cost))
+            self.read_tokens -= read_cost
+            self._read_history.append((now, read_cost))
 
-    async def acquire(self, global_cost: float = 1.0, write_cost: float = 0.0) -> None:
+    async def acquire(self, read_cost: float = 10.0, write_cost: float = 0.0) -> None:
         """Acquire tokens, blocking until available."""
         if write_cost > 0 and write_cost > self.write_capacity:
             raise ValueError(f"Write cost {write_cost} exceeds write capacity")
-        if write_cost == 0 and global_cost > self.read_capacity:
-            raise ValueError(f"Read cost {global_cost} exceeds read capacity")
+        if write_cost == 0 and read_cost > self.read_capacity:
+            raise ValueError(f"Read cost {read_cost} exceeds read capacity")
 
         lock = self._write_lock if write_cost > 0 else self._read_lock
-        async with lock:
-            while True:
+        while True:
+            async with lock:
                 if write_cost > 0:
                     self._refill_write()
                 else:
                     self._refill_read()
-                if self._can_proceed(global_cost, write_cost):
-                    self._consume(global_cost, write_cost)
+                if self._can_proceed(read_cost, write_cost):
+                    self._consume(read_cost, write_cost)
                     return
-                wait_time = self._calculate_wait_time(global_cost, write_cost)
-                if wait_time > 0:
-                    await asyncio.sleep(wait_time)
-                else:
-                    await asyncio.sleep(0.01)
+                wait_time = self._calculate_wait_time(read_cost, write_cost)
+            # Sleep OUTSIDE the lock to avoid deadlock
+            await asyncio.sleep(max(wait_time, 0.01))
 
     async def try_acquire(
-        self, global_cost: float = 1.0, write_cost: float = 0.0
+        self, read_cost: float = 10.0, write_cost: float = 0.0
     ) -> bool:
         """Try to acquire tokens without blocking. Returns True if acquired."""
         if write_cost > 0 and write_cost > self.write_capacity:
             return False
-        if write_cost == 0 and global_cost > self.read_capacity:
+        if write_cost == 0 and read_cost > self.read_capacity:
             return False
 
         lock = self._write_lock if write_cost > 0 else self._read_lock
@@ -133,13 +131,13 @@ class ReadWriteTokenBucket:
                 self._refill_write()
             else:
                 self._refill_read()
-            if self._can_proceed(global_cost, write_cost):
-                self._consume(global_cost, write_cost)
+            if self._can_proceed(read_cost, write_cost):
+                self._consume(read_cost, write_cost)
                 return True
             return False
 
     async def get_wait_time(
-        self, global_cost: float = 1.0, write_cost: float = 0.0
+        self, read_cost: float = 10.0, write_cost: float = 0.0
     ) -> float:
         """Estimate wait time without consuming tokens."""
         lock = self._write_lock if write_cost > 0 else self._read_lock
@@ -148,9 +146,9 @@ class ReadWriteTokenBucket:
                 self._refill_write()
             else:
                 self._refill_read()
-            if self._can_proceed(global_cost, write_cost):
+            if self._can_proceed(read_cost, write_cost):
                 return 0.0
-            return self._calculate_wait_time(global_cost, write_cost)
+            return self._calculate_wait_time(read_cost, write_cost)
 
     async def reconfigure(
         self,
