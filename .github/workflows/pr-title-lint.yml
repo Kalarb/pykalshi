@@ -8,6 +8,20 @@ permissions:
   pull-requests: read
 
 jobs:
+  pr-body-skip-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check PR body for skip-ci tokens
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          body=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }} --jq '.body // ""')
+          if echo "$body" | grep -qiE '\[(skip ci|ci skip|no ci|skip actions)\]'; then
+            echo "::error::PR body contains a CI skip token (e.g. [skip ci]). This will cause workflows to be skipped when squash-merged. Remove the literal skip token from the PR description."
+            exit 1
+          fi
+
   pr-title-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 1
