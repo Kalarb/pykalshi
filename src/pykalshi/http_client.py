@@ -279,12 +279,12 @@ class KalshiHttpClient:
 
         cost = self._resolve_cost(method, path)
         if method.upper() == "GET":
-            global_cost, write_cost = cost, 0.0
+            read_cost, write_cost = cost, 0.0
         else:
-            global_cost, write_cost = 0.0, cost
+            read_cost, write_cost = 0.0, cost
 
         wait_start = time.monotonic()
-        await self._limiter.acquire(global_cost=global_cost, write_cost=write_cost)
+        await self._limiter.acquire(read_cost=read_cost, write_cost=write_cost)
         waited = time.monotonic() - wait_start
         if waited > 0.001:
             self._rate_limiter_wait.record(waited)
