@@ -8,7 +8,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  pr-body-skip-ci:
+  pr-body-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
