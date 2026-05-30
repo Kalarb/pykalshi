@@ -866,3 +866,171 @@ class TestRfqIntegration:
                 await client.delete_rfq(rfq_id)
         except KalshiAPIError:
             pytest.skip("RFQ creation not available on this DEMO account")
+
+
+# =============================================================================
+# Event Orders V2 (create, cancel, amend, decrease, batch)
+# =============================================================================
+
+
+@pytest.mark.skipif(not _HAS_CREDS, reason="No DEMO credentials in .env")
+@pytest.mark.timeout(60)
+class TestEventOrdersIntegration:
+    @pytest.mark.asyncio
+    async def test_create_and_cancel(self, client: KalshiHttpClient) -> None:
+        """Create a V2 event order at $0.01 (won't fill), then cancel."""
+        import uuid
+
+        markets_resp = await client.get_markets(limit=5, status="open")
+        if not markets_resp.markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets_resp.markets[0].ticker
+
+        client_oid = str(uuid.uuid4())
+        created = await client.create_event_order(
+            ticker=ticker,
+            side="bid",
+            price="0.01",
+            count="1",
+            client_order_id=client_oid,
+            time_in_force="good_till_canceled",
+            self_trade_prevention_type="taker_at_cross",
+        )
+        order_id = created.order_id
+        assert order_id
+        assert created.client_order_id == client_oid
+
+        try:
+            await asyncio.sleep(2)
+            canceled = await client.cancel_event_order(order_id)
+            assert canceled.order_id == order_id
+        except KalshiAPIError:
+            pass  # cleanup below
+        finally:
+            try:
+                await client.cancel_event_order(order_id)
+            except KalshiAPIError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_amend_order(self, client: KalshiHttpClient) -> None:
+        """Create V2 order -> wait -> amend price -> cancel."""
+        import uuid
+
+        markets_resp = await client.get_markets(limit=5, status="open")
+        if not markets_resp.markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets_resp.markets[0].ticker
+
+        client_oid = str(uuid.uuid4())
+        created = await client.create_event_order(
+            ticker=ticker,
+            side="bid",
+            price="0.01",
+            count="1",
+            client_order_id=client_oid,
+            time_in_force="good_till_canceled",
+            self_trade_prevention_type="taker_at_cross",
+        )
+        order_id = created.order_id
+        assert order_id
+
+        try:
+            await asyncio.sleep(2)
+            amended = await client.amend_event_order(
+                order_id,
+                ticker=ticker,
+                side="bid",
+                price="0.02",
+                count="1",
+            )
+            assert amended.order_id
+        except KalshiAPIError as e:
+            if e.status_code not in (400, 403):
+                raise
+        finally:
+            try:
+                await client.cancel_event_order(order_id)
+            except KalshiAPIError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_decrease_order(self, client: KalshiHttpClient) -> None:
+        """Create V2 order with count=2 -> wait -> decrease to 1 -> cancel."""
+        import uuid
+
+        markets_resp = await client.get_markets(limit=5, status="open")
+        if not markets_resp.markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets_resp.markets[0].ticker
+
+        created = await client.create_event_order(
+            ticker=ticker,
+            side="bid",
+            price="0.01",
+            count="2",
+            client_order_id=str(uuid.uuid4()),
+            time_in_force="good_till_canceled",
+            self_trade_prevention_type="taker_at_cross",
+        )
+        order_id = created.order_id
+        assert order_id
+
+        try:
+            await asyncio.sleep(2)
+            decreased = await client.decrease_event_order(
+                order_id,
+                reduce_to="1",
+            )
+            assert decreased.order_id
+        except KalshiAPIError as e:
+            if e.status_code not in (400, 403):
+                raise
+        finally:
+            try:
+                await client.cancel_event_order(order_id)
+            except KalshiAPIError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_batch_create_and_cancel(self, client: KalshiHttpClient) -> None:
+        """Batch create 3 V2 orders, then batch cancel them."""
+        import uuid
+
+        markets_resp = await client.get_markets(limit=5, status="open")
+        if not markets_resp.markets:
+            pytest.skip("No open markets on DEMO")
+        ticker = markets_resp.markets[0].ticker
+
+        orders_to_create = [
+            {
+                "ticker": ticker,
+                "side": "bid",
+                "price": "0.01",
+                "count": "1",
+                "client_order_id": str(uuid.uuid4()),
+                "time_in_force": "good_till_canceled",
+                "self_trade_prevention_type": "taker_at_cross",
+            }
+            for _ in range(3)
+        ]
+        created = await client.batch_create_event_orders(orders_to_create)
+        order_ids = [
+            entry["order_id"]
+            for entry in created.orders
+            if entry.get("order_id")
+        ]
+        assert len(order_ids) >= 1
+
+        try:
+            await asyncio.sleep(2)
+            cancel_list = [{"order_id": oid} for oid in order_ids]
+            await client.batch_cancel_event_orders(cancel_list)
+        except KalshiAPIError:
+            pass
+        finally:
+            for oid in order_ids:
+                try:
+                    await client.cancel_event_order(oid)
+                except KalshiAPIError:
+                    pass
