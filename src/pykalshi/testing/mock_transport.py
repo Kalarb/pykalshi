@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any
 
 import httpx
 
 
 def make_mock_transport(
-    routes: dict[Tuple[str, str], Any] | None = None,
+    routes: dict[tuple[str, str], Any] | None = None,
     default_status: int = 200,
 ) -> httpx.MockTransport:
     """Build an httpx MockTransport with canned responses.

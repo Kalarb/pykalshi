@@ -214,7 +214,7 @@ class KalshiWebSocketClient:
                         self._check_and_update_seq(msg_state, seq)
 
         if self.on_message_callback:
-            task: asyncio.Task[None] = asyncio.ensure_future(
+            task: asyncio.Task[None] = asyncio.create_task(
                 self.on_message_callback(message)
             )
             task.add_done_callback(_log_callback_exception)
@@ -321,10 +321,10 @@ class KalshiWebSocketClient:
                 return
             old_sid = chan_state.sid
             saved_markets = set(chan_state.markets)
-            self._sid_map.pop(old_sid, None)
             chan_state.sid = None
             chan_state.seq = 0
             if old_sid is not None:
+                self._sid_map.pop(old_sid, None)
                 await self._send_unsubscribe(old_sid)
 
         # Sleep outside the lock to avoid blocking the listener
