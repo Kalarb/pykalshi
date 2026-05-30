@@ -71,6 +71,25 @@ class TestReadWriteTokenBucket:
         assert bucket.write_capacity == 25.0
 
     @pytest.mark.asyncio
+    async def test_reconfigure_fills_tokens_to_new_capacity(self) -> None:
+        """Tokens must be filled to new capacity after reconfigure.
+
+        Regression: previously tokens stayed at the old capacity (e.g. 10)
+        after reconfiguring to a higher capacity (e.g. 100), causing
+        requests with cost > old capacity to hang forever.
+        """
+        bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=10.0)
+        assert bucket.write_tokens == 10.0
+
+        await bucket.reconfigure(read_rate=200.0, write_rate=100.0)
+        assert bucket.read_tokens == 200.0
+        assert bucket.write_tokens == 100.0
+
+        # A write costing 15 should now succeed (was stuck before)
+        await bucket.acquire(read_cost=0.0, write_cost=15.0)
+        assert bucket.write_tokens == 85.0
+
+    @pytest.mark.asyncio
     async def test_reconfigure_invalid(self) -> None:
         bucket = ReadWriteTokenBucket(read_rate=10.0, write_rate=5.0)
         with pytest.raises(ValueError, match="positive"):
