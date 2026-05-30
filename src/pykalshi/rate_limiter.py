@@ -170,8 +170,10 @@ class ReadWriteTokenBucket:
                 self.write_rate = write_rate
                 self.read_capacity = read_capacity if read_capacity is not None else read_rate
                 self.write_capacity = write_capacity if write_capacity is not None else write_rate
-                self.read_tokens = min(self.read_tokens, self.read_capacity)
-                self.write_tokens = min(self.write_tokens, self.write_capacity)
+                self.read_tokens = float(self.read_capacity)
+                self.write_tokens = float(self.write_capacity)
+                self._read_history.clear()
+                self._write_history.clear()
 
     def get_status(self) -> dict[str, object]:
         """Return current token bucket state for debugging."""
