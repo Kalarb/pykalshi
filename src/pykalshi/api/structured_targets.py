@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ._utils import STRUCTURED_TARGETS_URL, strip_none
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 async def get_structured_targets(
     client: KalshiHttpClient,
     *,
-    ids: Optional[List[str]] = None,
+    ids: Optional[list[str]] = None,
     target_type: Optional[str] = None,
     competition: Optional[str] = None,
     page_size: Optional[int] = None,

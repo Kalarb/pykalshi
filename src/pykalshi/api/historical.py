@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ._utils import HISTORICAL_URL, strip_none
 
@@ -26,7 +26,7 @@ async def get_historical_markets(
     *,
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
-    tickers: Optional[List[str]] = None,
+    tickers: Optional[list[str]] = None,
     event_ticker: Optional[str] = None,
     series_ticker: Optional[str] = None,
     mve_filter: Optional[str] = None,

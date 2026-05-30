@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ._utils import LIVE_DATA_URL, strip_none
 
@@ -50,7 +50,7 @@ path parameter. Prefer using `/live_data/milestone/{milestone_id}` instead.
 
 async def get_live_data_batch(
     client: KalshiHttpClient,
-    milestone_ids: List[str],
+    milestone_ids: list[str],
     *,
     include_player_stats: Optional[bool] = None,
 ) -> dict[str, Any]:

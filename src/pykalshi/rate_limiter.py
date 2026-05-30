@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import deque
-from typing import Tuple
 
 
 class ReadWriteTokenBucket:
@@ -30,8 +29,8 @@ class ReadWriteTokenBucket:
         self.read_tokens = float(self.read_capacity)
         self.write_tokens = float(self.write_capacity)
 
-        self._read_history: deque[Tuple[float, float]] = deque()
-        self._write_history: deque[Tuple[float, float]] = deque()
+        self._read_history: deque[tuple[float, float]] = deque()
+        self._write_history: deque[tuple[float, float]] = deque()
         self._read_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
 
