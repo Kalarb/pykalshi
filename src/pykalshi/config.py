@@ -15,12 +15,12 @@ class Environment(Enum):
 
 _ENV_URLS: dict[Environment, dict[str, str]] = {
     Environment.DEMO: {
-        "http": "https://demo-api.kalshi.co",
-        "ws": "wss://demo-api.kalshi.co",
+        "http": "https://external-api.demo.kalshi.co",
+        "ws": "wss://external-api-ws.demo.kalshi.co",
     },
     Environment.PROD: {
-        "http": "https://api.elections.kalshi.com",
-        "ws": "wss://api.elections.kalshi.com",
+        "http": "https://external-api.kalshi.com",
+        "ws": "wss://external-api-ws.kalshi.com",
     },
 }
 
