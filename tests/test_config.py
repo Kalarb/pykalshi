@@ -33,19 +33,19 @@ class TestClientConfigDefaults:
 class TestUrlResolution:
     def test_http_url_from_environment_demo(self) -> None:
         cfg = ClientConfig(environment=Environment.DEMO)
-        assert cfg.resolved_http_url == "https://demo-api.kalshi.co"
+        assert cfg.resolved_http_url == "https://external-api.demo.kalshi.co"
 
     def test_http_url_from_environment_prod(self) -> None:
         cfg = ClientConfig(environment=Environment.PROD)
-        assert cfg.resolved_http_url == "https://api.elections.kalshi.com"
+        assert cfg.resolved_http_url == "https://external-api.kalshi.com"
 
     def test_ws_url_from_environment_demo(self) -> None:
         cfg = ClientConfig(environment=Environment.DEMO)
-        assert cfg.resolved_ws_url == "wss://demo-api.kalshi.co"
+        assert cfg.resolved_ws_url == "wss://external-api-ws.demo.kalshi.co"
 
     def test_ws_url_from_environment_prod(self) -> None:
         cfg = ClientConfig(environment=Environment.PROD)
-        assert cfg.resolved_ws_url == "wss://api.elections.kalshi.com"
+        assert cfg.resolved_ws_url == "wss://external-api-ws.kalshi.com"
 
     def test_explicit_http_url_takes_precedence(self) -> None:
         cfg = ClientConfig(http_base_url="https://custom.example.com")
